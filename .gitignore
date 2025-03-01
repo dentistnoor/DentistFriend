@@ -1,5 +1,10 @@
+# Virtual environment files
 .venv/
 __pycache__/
 
-.env
+# IDE-related files
+.vscode/
+.idea/
+
+# Database files
 firebase-config.json
