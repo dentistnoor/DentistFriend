@@ -7,6 +7,7 @@ st.set_page_config(
     page_title="Dental Flow",
     page_icon="🦷",
     layout="wide",
+    # initial_sidebar_state="collapsed"
 )
 
 # Initialize Firebase

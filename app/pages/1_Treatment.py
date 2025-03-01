@@ -1,27 +1,22 @@
+import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from firebase_admin import firestore
-from pdf import generate_pdf
-import os
-
-if 'treatment_plan' not in st.session_state:
-    st.session_state.treatment_plan = []
+from utils import generate_pdf
 
 if 'patient_registered' not in st.session_state:
     st.session_state.patient_registered = False
 
-if 'doctor_email' not in st.session_state:
-    st.session_state.doctor_email = None
+if 'treatment_plan' not in st.session_state:
+    st.session_state.treatment_plan = []
 
 db = firestore.client()
 
-# Function to save patient under the logged-in doctor
 def save_patient(doctor_email, patient_data):
     doctor_ref = db.collection('doctors').document(doctor_email)
     doctor_ref.collection('patients').document(patient_data["file_number"]).set(patient_data)
 
-# Function to search for an existing patient
 def get_patient(doctor_email, file_number):
     doctor_ref = db.collection('doctors').document(doctor_email)
     patient_ref = doctor_ref.collection('patients').document(file_number).get()
@@ -29,7 +24,6 @@ def get_patient(doctor_email, file_number):
         return patient_ref.to_dict()
     return None
 
-# Function to update patient's treatment plan in Firestore
 def update_patient_treatment(doctor_email, file_number, treatment_plan):
     doctor_ref = db.collection('doctors').document(doctor_email)
     patient_ref = doctor_ref.collection('patients').document(file_number)
@@ -60,7 +54,7 @@ def main():
                 st.success(f"Patient found: {patient_data['name']}, Age: {patient_data['age']}")
                 st.session_state.patient_registered = True
                 st.session_state.selected_patient = patient_data
-                return
+                st.session_state.treatment_plan = patient_data.get('treatment_plan', [])
             else:
                 st.warning("No patient found with this file number.")
 
@@ -71,7 +65,7 @@ def main():
                     'age': age,
                     'gender': gender,
                     'file_number': file_number,
-                    'treatment_plan': []  # Initialize empty treatment plan
+                    'treatment_plan': []
                 }
                 save_patient(st.session_state.doctor_email, patient_data)
                 st.session_state.patient_registered = True
@@ -102,11 +96,7 @@ def main():
                 cols = st.columns(8)
                 for i, tooth in enumerate(row):
                     with cols[i]:
-                        selected_condition = st.selectbox(
-                            f"Tooth {tooth}",
-                            conditions,
-                            key=f"tooth_{tooth}"
-                        )
+                        selected_condition = st.selectbox(f"Tooth {tooth}", conditions, key=f"tooth_{tooth}")
                         if selected_condition != "Healthy":
                             st.session_state.selected_tooth = tooth
 
@@ -117,42 +107,25 @@ def main():
             with st.form("treatment_form"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    tooth_number = st.selectbox("Tooth Number", list(teeth.keys()),
-                                                index=list(teeth.keys()).index(selected_tooth))
+                    tooth_number = st.selectbox("Tooth Number", list(teeth.keys()), index=list(teeth.keys()).index(selected_tooth))
                 with col2:
                     procedure = st.selectbox("Procedure", [
-                        "Filling",
-                        "Root Canal Treatment",
-                        "Crown",
-                        "Extraction",
-                        "Denture",
-                        "Implant",
-                        "Scaling"
+                        "Filling", "Root Canal Treatment", "Crown", "Extraction", "Denture", "Implant", "Scaling"
                     ])
                 cost_estimates = {
-                    "Filling": 150,
-                    "Root Canal Treatment": 800,
-                    "Crown": 1000,
-                    "Extraction": 200,
-                    "Denture": 1500,
-                    "Implant": 3000,
-                    "Scaling": 100
+                    "Filling": 150, "Root Canal Treatment": 800, "Crown": 1000, "Extraction": 200,
+                    "Denture": 1500, "Implant": 3000, "Scaling": 100
                 }
                 procedure_cost = cost_estimates.get(procedure, 0)
 
                 if st.form_submit_button("Add to Treatment Plan"):
-                    existing = [item for item in st.session_state.treatment_plan
-                                if item['Tooth'] == tooth_number and item['Procedure'] == procedure]
+                    existing = [item for item in st.session_state.treatment_plan if item['Tooth'] == tooth_number and item['Procedure'] == procedure]
                     if not existing:
                         new_treatment = {
-                            'Tooth': tooth_number,
-                            'Procedure': procedure,
-                            'Cost': procedure_cost,
-                            'Status': 'Pending'
+                            'Tooth': tooth_number, 'Procedure': procedure, 'Cost': procedure_cost, 'Status': 'Pending'
                         }
                         st.session_state.treatment_plan.append(new_treatment)
 
-                        # Update Firestore with new treatment plan
                         updated_treatment_plan = st.session_state.selected_patient.get('treatment_plan', [])
                         updated_treatment_plan.append(new_treatment)
                         update_patient_treatment(st.session_state.doctor_email, file_number, updated_treatment_plan)
@@ -190,7 +163,7 @@ def main():
                 status = st.selectbox(
                     f"Status for {row['Procedure']} on Tooth {row['Tooth']}",
                     ["Pending", "In Progress", "Completed"],
-                    key=f"status_{row['Tooth']}_{row['Procedure']}"
+                    key=f"status_{index}_{row['Tooth']}_{row['Procedure']}"
                 )
                 df.at[index, 'Status'] = status
 
@@ -201,7 +174,7 @@ def main():
                     f"Duration (days) for {row['Procedure']} on Tooth {row['Tooth']}",
                     min_value=1,
                     value=7,
-                    key=f"duration_{row['Tooth']}_{row['Procedure']}"
+                    key=f"duration_{index}_{row['Tooth']}_{row['Procedure']}"
                 )
                 df.at[index, 'End Date'] = start_date + timedelta(days=duration)
 
