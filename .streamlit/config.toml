@@ -1,0 +1,10 @@
+[theme]
+base = "light"
+primaryColor = "#5588ff"
+font = "monospace"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+runOnSave = true
