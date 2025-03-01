@@ -5,6 +5,11 @@ from datetime import datetime, timedelta
 from firebase_admin import firestore
 from utils import generate_pdf
 
+
+
+
+
+
 if 'patient_registered' not in st.session_state:
     st.session_state.patient_registered = False
 
