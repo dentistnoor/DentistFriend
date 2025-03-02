@@ -220,114 +220,111 @@ def main():
 
             st.table(cost_details)
 
-            # Treatment progress form
-            with st.form("update_treatment_progress"):
-                st.subheader("Treatment Progress Monitoring")
-                
-                # Create temp data for the form
-                status_updates = {}
-                
-                for index_position, row_data in data_frame.iterrows():
-                    tooth = row_data['Tooth']
-                    procedure = row_data['Procedure']
-                    key_id = f"{tooth}_{procedure}"
+            # Treatment progress expander
+            with st.expander("Treatment Progress Monitoring", expanded=True):
+                with st.form("update_treatment_progress"):
+                    # Create temp data for the form
+                    status_updates = {}
                     
-                    status_value = st.selectbox(
-                        f"Status for {procedure} on Tooth {tooth}",
-                        ["Pending", "In Progress", "Completed"],
-                        index=["Pending", "In Progress", "Completed"].index(row_data['Status']),
-                        key=f"status_{key_id}"
-                    )
-                    status_updates[key_id] = status_value
-                
-                submit_progress = st.form_submit_button("Update Treatment Progress")
-                if submit_progress:
-                    # Update session state treatment record
-                    updated_treatments = []
-                    for item in st.session_state.treatment_record:
-                        tooth = item['Tooth']
-                        procedure = item['Procedure']
+                    for index_position, row_data in data_frame.iterrows():
+                        tooth = row_data['Tooth']
+                        procedure = row_data['Procedure']
                         key_id = f"{tooth}_{procedure}"
                         
-                        # Update status
-                        item['Status'] = status_updates.get(key_id, item['Status'])
-                        updated_treatments.append(item)
+                        status_value = st.selectbox(
+                            f"Status for {procedure} on Tooth {tooth}",
+                            ["Pending", "In Progress", "Completed"],
+                            index=["Pending", "In Progress", "Completed"].index(row_data['Status']),
+                            key=f"status_{key_id}"
+                        )
+                        status_updates[key_id] = status_value
                     
-                    # Update session state and database
-                    st.session_state.treatment_record = updated_treatments
-                    modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
-                    st.success("Treatment progress updated successfully!")
-                    st.rerun()
+                    submit_progress = st.form_submit_button("Update Treatment Progress")
+                    if submit_progress:
+                        # Update session state treatment record
+                        updated_treatments = []
+                        for item in st.session_state.treatment_record:
+                            tooth = item['Tooth']
+                            procedure = item['Procedure']
+                            key_id = f"{tooth}_{procedure}"
+                            
+                            # Update status
+                            item['Status'] = status_updates.get(key_id, item['Status'])
+                            updated_treatments.append(item)
+                        
+                        # Update session state and database
+                        st.session_state.treatment_record = updated_treatments
+                        modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
+                        st.success("Treatment progress updated successfully!")
             
-            # Separate form for timeline updates
-            with st.form("update_treatment_timeline"):
-                st.subheader("Treatment Schedule Timeline")
-                # Use a safe default date - today
-                today = datetime.today()
-                
-                # Try to get a start date from the first treatment if available
-                default_start_date = today
-                if not data_frame.empty and 'Start Date' in data_frame.columns:
-                    try:
-                        # Handle potential string format
-                        first_date = data_frame['Start Date'].iloc[0]
-                        if isinstance(first_date, str):
-                            default_start_date = datetime.strptime(first_date, '%Y-%m-%d')
-                        else:
-                            default_start_date = today
-                    except (ValueError, TypeError):
-                        default_start_date = today
-                
-                start_date = st.date_input("Start Date", value=default_start_date)
-                
-                duration_updates = {}
-                for index_position, row_data in data_frame.iterrows():
-                    tooth = row_data['Tooth']
-                    procedure = row_data['Procedure']
-                    key_id = f"{tooth}_{procedure}"
+            # Treatment timeline expander    
+            with st.expander("Treatment Schedule Timeline", expanded=True):
+                with st.form("update_treatment_timeline"):
+                    # Use a safe default date - today
+                    today = datetime.today()
                     
-                    # Get current duration or default to 7
-                    default_duration = 7
-                    if 'Duration' in row_data:
+                    # Try to get a start date from the first treatment if available
+                    default_start_date = today
+                    if not data_frame.empty and 'Start Date' in data_frame.columns:
                         try:
-                            default_duration = int(row_data['Duration'])
+                            # Handle potential string format
+                            first_date = data_frame['Start Date'].iloc[0]
+                            if isinstance(first_date, str):
+                                default_start_date = datetime.strptime(first_date, '%Y-%m-%d')
+                            else:
+                                default_start_date = today
                         except (ValueError, TypeError):
-                            default_duration = 7
+                            default_start_date = today
                     
-                    duration_days = st.number_input(
-                        f"Duration (days) for {procedure} on Tooth {tooth}",
-                        min_value=1,
-                        value=default_duration,
-                        key=f"duration_{key_id}"
-                    )
-                    duration_updates[key_id] = duration_days
-                
-                submit_timeline = st.form_submit_button("Update Schedule")
-                if submit_timeline:
-                    # Update session state treatment record
-                    updated_treatments = []
-                    start_date_str = start_date.strftime('%Y-%m-%d')
+                    start_date = st.date_input("Start Date", value=default_start_date)
                     
-                    for item in st.session_state.treatment_record:
-                        tooth = item['Tooth']
-                        procedure = item['Procedure']
+                    duration_updates = {}
+                    for index_position, row_data in data_frame.iterrows():
+                        tooth = row_data['Tooth']
+                        procedure = row_data['Procedure']
                         key_id = f"{tooth}_{procedure}"
                         
-                        # Update duration
-                        item['Duration'] = duration_updates.get(key_id, item.get('Duration', 7))
+                        # Get current duration or default to 7
+                        default_duration = 7
+                        if 'Duration' in row_data:
+                            try:
+                                default_duration = int(row_data['Duration'])
+                            except (ValueError, TypeError):
+                                default_duration = 7
                         
-                        # Update dates
-                        item['Start Date'] = start_date_str
-                        end_date = start_date + timedelta(days=item['Duration'])
-                        item['End Date'] = end_date.strftime('%Y-%m-%d')
-                        
-                        updated_treatments.append(item)
+                        duration_days = st.number_input(
+                            f"Duration (days) for {procedure} on Tooth {tooth}",
+                            min_value=1,
+                            value=default_duration,
+                            key=f"duration_{key_id}"
+                        )
+                        duration_updates[key_id] = duration_days
                     
-                    # Update session state and database
-                    st.session_state.treatment_record = updated_treatments
-                    modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
-                    st.success("Treatment schedule updated successfully!")
-                    st.rerun()
+                    submit_timeline = st.form_submit_button("Update Schedule")
+                    if submit_timeline:
+                        # Update session state treatment record
+                        updated_treatments = []
+                        start_date_str = start_date.strftime('%Y-%m-%d')
+                        
+                        for item in st.session_state.treatment_record:
+                            tooth = item['Tooth']
+                            procedure = item['Procedure']
+                            key_id = f"{tooth}_{procedure}"
+                            
+                            # Update duration
+                            item['Duration'] = duration_updates.get(key_id, item.get('Duration', 7))
+                            
+                            # Update dates
+                            item['Start Date'] = start_date_str
+                            end_date = start_date + timedelta(days=item['Duration'])
+                            item['End Date'] = end_date.strftime('%Y-%m-%d')
+                            
+                            updated_treatments.append(item)
+                        
+                        # Update session state and database
+                        st.session_state.treatment_record = updated_treatments
+                        modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
+                        st.success("Treatment schedule updated successfully!")
 
             # Create a better visualization of the treatment schedule
             if not data_frame.empty:
