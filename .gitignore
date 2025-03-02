@@ -8,3 +8,10 @@ __pycache__/
 
 # Database files
 firebase-config.json
+
+# Local development files
+.env
+*.pdf
+*.png
+*.jpg
+*.jpeg
