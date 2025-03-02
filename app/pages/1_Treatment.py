@@ -36,7 +36,7 @@ def main():
         st.error("Doctor Authentication Required: Please log in to access patient management")
         return
 
-    st.header("Patient Registration Form")
+    st.header("Patient Registration")
 
     column_first, column_second = st.columns(2)
     with column_first:
@@ -48,9 +48,9 @@ def main():
 
     col1, col2 = st.columns(2)
     with col1:
-        search_button = st.button("Search Patient", key="search_patient_btn")
+        search_button = st.button("🔍 Search Patient", key="search_patient_btn")
     with col2:
-        register_button = st.button("Register Patient", key="register_patient_btn")
+        register_button = st.button("➕ Register Patient", key="register_patient_btn")
 
     if search_button and file_id:
         patient_info = fetch_patient(st.session_state.doctor_email, file_id)
@@ -65,19 +65,24 @@ def main():
 
     if register_button:
         if patient_fullname and patient_age and file_id:
-            patient_info = {
-                'name': patient_fullname,
-                'age': patient_age,
-                'gender': patient_gender,
-                'file_id': file_id,
-                'dental_chart': {},
-                'treatment_plan': []
-            }
-            store_patient(st.session_state.doctor_email, patient_info)
-            st.session_state.patient_status = True
-            st.session_state.patient_selected = patient_info
-            st.session_state.treatment_record = []
-            st.success(f"Registration Successful: Patient {patient_fullname} added to database")
+            existing_patient = fetch_patient(st.session_state.doctor_email, file_id)
+            if existing_patient:
+                st.error(f"Registration Error: File ID {file_id} already exists in the database")
+                st.session_state.patient_status = False
+            else:
+                patient_info = {
+                    'name': patient_fullname,
+                    'age': patient_age,
+                    'gender': patient_gender,
+                    'file_id': file_id,
+                    'dental_chart': {},
+                    'treatment_plan': []
+                }
+                store_patient(st.session_state.doctor_email, patient_info)
+                st.session_state.patient_status = True
+                st.session_state.patient_selected = patient_info
+                st.session_state.treatment_record = []
+                st.success(f"Registration Successful: Patient {patient_fullname} added to database")
         else:
             st.error("Registration Error: All fields are required to complete registration")
             st.session_state.patient_status = False
@@ -145,7 +150,7 @@ def main():
                 st.success("Dental chart updated successfully!")
 
         with st.container(border=True):
-            st.header("Treatment Plan Creation")
+            st.header("Treatment Plan")
             tooth_selected = st.session_state.get("tooth_selected", list(teeth_map.keys())[0])
 
             with st.form("treatment_form"):
@@ -162,7 +167,7 @@ def main():
                 }
                 procedure_price = price_estimates.get(treatment_procedure, 0)
 
-                submit_button = st.form_submit_button("Add Procedure")
+                submit_button = st.form_submit_button("➕ Add Procedure")
                 if submit_button:
                     existing_procedures = [item for item in st.session_state.treatment_record if item['Tooth'] == tooth_identifier and item['Procedure'] == treatment_procedure]
                     if not existing_procedures:
@@ -180,15 +185,15 @@ def main():
                         }
                         st.session_state.treatment_record.append(new_procedure)
                         modify_treatment(st.session_state.doctor_email, file_id, st.session_state.treatment_record)
-                        st.success("Procedure Addition Successful: Treatment added to patient record")
+                        st.success("Procedure added to treatment plan")
                     else:
-                        st.error("Duplicate Treatment: This procedure already exists for the selected tooth")
+                        st.error("This procedure already exists for the selected tooth")
 
         if st.session_state.treatment_record:
             data_frame = pd.DataFrame(st.session_state.treatment_record)
             st.dataframe(data_frame, use_container_width=True)
 
-            st.subheader("Treatment Cost Calculation")
+            st.subheader("Cost Summary")
             total_price = data_frame['Cost'].sum()
 
             discount_amount = st.number_input("Discount Amount", min_value=0, step=1, format="%d")
@@ -208,7 +213,7 @@ def main():
 
             st.table(cost_details)
 
-            with st.expander("Treatment Progress Monitoring", expanded=True):
+            with st.expander("Treatment Progress", expanded=True):
                 with st.form("update_treatment_progress"):
                     status_updates = {}
 
@@ -225,7 +230,7 @@ def main():
                         )
                         status_updates[key_id] = status_value
 
-                    submit_progress = st.form_submit_button("Update Treatment Progress")
+                    submit_progress = st.form_submit_button("📋 Update Progress")
                     if submit_progress:
                         updated_treatments = []
                         for item in st.session_state.treatment_record:
@@ -238,9 +243,9 @@ def main():
 
                         st.session_state.treatment_record = updated_treatments
                         modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
-                        st.success("Treatment progress updated successfully!")
+                        st.success("Treatment progress updated")
 
-            with st.expander("Treatment Schedule Timeline", expanded=True):
+            with st.expander("Treatment Schedule", expanded=True):
                 with st.form("update_treatment_timeline"):
                     today = datetime.today()
 
@@ -278,7 +283,7 @@ def main():
                         )
                         duration_updates[key_id] = duration_days
 
-                    submit_timeline = st.form_submit_button("Update Schedule")
+                    submit_timeline = st.form_submit_button("📅 Update Schedule")
                     if submit_timeline:
                         updated_treatments = []
                         start_date_str = start_date.strftime('%Y-%m-%d')
@@ -298,7 +303,7 @@ def main():
 
                         st.session_state.treatment_record = updated_treatments
                         modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
-                        st.success("Treatment schedule updated successfully!")
+                        st.success("Treatment schedule updated")
 
             if not data_frame.empty:
                 st.subheader("Treatment Schedule Overview")
@@ -316,7 +321,9 @@ def main():
 
                 st.table(display_df[required_columns])
 
-            st.subheader("Dental Imaging Upload")
+            st.subheader("Dental Imaging")
+            st.info("⚠️ Dental imaging and PDF report generation features are currently under development")
+            
             image_file = st.file_uploader("Upload X-Ray Image", type=["jpg", "png", "jpeg"])
             image_path = None
             if image_file:
@@ -325,28 +332,35 @@ def main():
                     file_handler.write(image_file.getbuffer())
                 st.image(image_file, caption="Uploaded X-Ray Image", use_column_width=True)
 
-            if st.button("Generate Treatment Report"):
+            if st.button("📄 Generate Treatment Report"):
                 try:
                     pdf_path = generate_pdf(patient_info['name'] or "Unknown Patient", data_frame.to_dict('records'), total_price, image_path)
+                    
                     with open(pdf_path, "rb") as file_handler:
                         pdf_content = file_handler.read()
+                    
+                    file_name = f"{patient_info['name'] or 'unknown'}_treatment_plan.pdf"
                     st.download_button(
                         label="Download Treatment Report",
                         data=pdf_content,
-                        file_name=f"{patient_info['name'] or 'unknown'}_treatment_plan.pdf",
-                        mime="application/pdf"
+                        file_name=file_name,
+                        mime="application/pdf",
+                        key="auto_download"
                     )
+                    
+                    st.success(f"Treatment report generated successfully: {file_name}")
+                    
                 except Exception as error_message:
                     st.error(f"Report Generation Error: {error_message}")
-                finally:
-                    if image_path and os.path.exists(image_path):
-                        os.remove(image_path)
+                # finally:
+                #     if os.path.exists(pdf_path):
+                #         os.remove(pdf_path)
 
         else:
-            st.info("Empty Treatment Plan: No procedures have been added yet")
+            st.info("No procedures have been added to the treatment plan yet")
 
     if st.session_state.patient_status:
-        if st.button("Clear Current Patient"):
+        if st.button("🔄 Clear Current Patient"):
             st.session_state.patient_status = False
             st.session_state.treatment_record = []
             st.rerun()
