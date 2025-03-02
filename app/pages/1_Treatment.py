@@ -36,47 +36,61 @@ def main():
         st.error("Doctor Authentication Required: Please log in to access patient management")
         return
 
-    if not st.session_state.patient_status:
-        st.header("Patient Registration Form")
+    # Always display the patient registration form at the top
+    st.header("Patient Registration Form")
 
-        column_first, column_second = st.columns(2)
-        with column_first:
-            patient_fullname = st.text_input("Full Name", placeholder="Enter patient's full name")
-            patient_age = st.number_input("Age", min_value=1, max_value=150, step=1)
-        with column_second:
-            patient_gender = st.selectbox("Gender", ["Male", "Female", "Other"])
-            file_id = st.text_input("File ID", placeholder="Enter File ID")
+    column_first, column_second = st.columns(2)
+    with column_first:
+        patient_fullname = st.text_input("Full Name", placeholder="Enter patient's full name")
+        patient_age = st.number_input("Age", min_value=1, max_value=150, step=1)
+    with column_second:
+        patient_gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+        file_id = st.text_input("File ID", placeholder="Enter File ID")
 
-        search_button = st.button("Search Patient")
-        if search_button and file_id:
-            patient_info = fetch_patient(st.session_state.doctor_email, file_id)
-            if patient_info:
-                st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
-                st.session_state.patient_status = True
-                st.session_state.patient_selected = patient_info
-                st.session_state.treatment_record = patient_info.get('treatment_plan', [])
-            else:
-                st.warning("Patient Lookup Failed: No records match this file ID")
+    col1, col2 = st.columns(2)
+    with col1:
+        search_button = st.button("Search Patient", key="search_patient_btn")
+    with col2:
+        register_button = st.button("Register Patient", key="register_patient_btn")
+    
+    # Handle search
+    if search_button and file_id:
+        patient_info = fetch_patient(st.session_state.doctor_email, file_id)
+        if patient_info:
+            st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
+            st.session_state.patient_status = True
+            st.session_state.patient_selected = patient_info
+            st.session_state.treatment_record = patient_info.get('treatment_plan', [])
+        else:
+            st.warning("Patient Lookup Failed: No records match this file ID")
+            st.session_state.patient_status = False
 
-        if st.button("Register Patient"):
-            if patient_fullname and patient_age and file_id:
-                patient_info = {
-                    'name': patient_fullname,
-                    'age': patient_age,
-                    'gender': patient_gender,
-                    'file_id': file_id,
-                    'treatment_plan': []
-                }
-                store_patient(st.session_state.doctor_email, patient_info)
-                st.session_state.patient_status = True
-                st.session_state.patient_selected = patient_info
-                st.success(f"Registration Successful: Patient {patient_fullname} added to database")
-            else:
-                st.error("Registration Error: All fields are required to complete registration")
+    # Handle registration
+    if register_button:
+        if patient_fullname and patient_age and file_id:
+            patient_info = {
+                'name': patient_fullname,
+                'age': patient_age,
+                'gender': patient_gender,
+                'file_id': file_id,
+                'treatment_plan': []
+            }
+            store_patient(st.session_state.doctor_email, patient_info)
+            st.session_state.patient_status = True
+            st.session_state.patient_selected = patient_info
+            st.session_state.treatment_record = []
+            st.success(f"Registration Successful: Patient {patient_fullname} added to database")
+        else:
+            st.error("Registration Error: All fields are required to complete registration")
+            st.session_state.patient_status = False
 
+    # Only display treatment sections if a patient is selected
     if st.session_state.patient_status:
         patient_info = st.session_state.patient_selected
         file_id = patient_info['file_id']
+        
+        st.markdown("---")
+        st.subheader(f"Active Patient: {patient_info['name']} (ID: {file_id})")
 
         with st.container(border=True):
             st.header("Dental Chart Assessment")
@@ -207,6 +221,13 @@ def main():
                         os.remove(image_path)
         else:
             st.info("Empty Treatment Plan: No procedures have been added yet")
+            
+    # Clear button to reset current patient view
+    if st.session_state.patient_status:
+        if st.button("Clear Current Patient"):
+            st.session_state.patient_status = False
+            st.session_state.treatment_record = []
+            st.rerun()
 
 if __name__ == "__main__":
     main()
