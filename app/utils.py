@@ -1,4 +1,22 @@
+import streamlit as st
 from fpdf import FPDF
+
+
+def show_footer():
+    st.divider()
+    st.markdown(
+        """
+        <footer style='text-align: center'>
+            🔓 FOSS (Free and Open Source Software)
+            <br>
+            <a href="https://github.com/dent-noor/DentalFlow">GitHub</a> • 
+            <a href="https://github.com/dent-noor/DentalFlow/blob/main/LICENSE">License</a> • 
+            <a href="https://github.com/dent-noor/DentalFlow/blob/main/README.md">Documentation</a>
+        </footer>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 def generate_pdf(patient_name, treatment_plan, total_cost, xray_image_path=None):
     pdf = FPDF()
