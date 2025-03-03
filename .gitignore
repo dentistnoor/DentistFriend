@@ -11,8 +11,8 @@ firebase-config.json
 
 # Local development files
 .env
-*.pdf
 *.png
-*.jpg
+# *.jpg
 *.jpeg
+*.pdf
 *.csv
