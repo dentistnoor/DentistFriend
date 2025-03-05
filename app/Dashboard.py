@@ -193,7 +193,7 @@ def sign_in():
             doctor_name = database.collection("doctors").document(email).get().to_dict()["name"]
 
             # Store session details
-            st.success(f"Welcome, Dr. {email}!")
+            st.success(f"Welcome, Dr. {doctor_name}!")
             st.session_state["logged_in"] = True
             st.session_state["doctor_name"] = doctor_name
             st.session_state["doctor_email"] = email
