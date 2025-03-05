@@ -19,7 +19,6 @@ if not firebase_admin._apps:
 
 database = firestore.client()
 
-
 def main():
     st.title("🦷 Dental Flow")
     st.info('NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development', icon='⚠️')
@@ -35,7 +34,8 @@ def main():
         date_str = current_date.strftime("%A, %B %d, %Y")
         time_str = current_date.strftime("%H:%M")
 
-        st.subheader(f"Welcome, Dr. {st.session_state['doctor_email']}!")
+
+        st.subheader(f"Welcome, Dr. {st.session_state.get('doctor_name', 'Doctor')}!")  # Use stored name
         st.caption(f"{date_str} | {time_str}")
 
         show_nav()
@@ -192,18 +192,28 @@ def sign_in():
             # Verify user exists in Firebase Authentication
             user = auth.get_user_by_email(email)
 
-            # Store session details
-            st.success(f"Welcome, Dr. {email}!")
-            st.session_state["logged_in"] = True
-            st.session_state["doctor_email"] = email
+            # Fetch doctor's name from Firestore
+            doc_ref = database.collection("doctors").document(email)
+            doc = doc_ref.get()
 
-            # Rerun the app to show the navigation buttons
-            st.rerun()
+            if doc.exists:
+                doctor_data = doc.to_dict()
+                doctor_name = doctor_data.get("name", "Doctor")  # Default to "Doctor" if no name is found
+
+                # Store session details
+                st.success(f"Welcome, Dr. {[doctor_name]}!")
+                st.session_state["logged_in"] = True
+                st.session_state["doctor_email"] = email
+                st.session_state["doctor_name"] = doctor_name  # Store name in session state
+
+                # Rerun the app to reflect changes
+                st.rerun()
+            else:
+                st.error("No record found. Please sign up first.")
         except firebase_admin.auth.UserNotFoundError:
             st.error("Invalid email or password.")
         except Exception as e:
             st.error(f"Error: {e}")
-
 
 # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
 def reset_password():
