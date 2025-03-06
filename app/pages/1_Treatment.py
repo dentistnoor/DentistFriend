@@ -115,7 +115,7 @@ def main():
         st.divider()
         st.subheader(f"Active Patient: {patient_info['name']} (ID: {file_id})")
 
-        # Dental chart assessment tool - visual representation of patient's dental health
+        # Enhanced Dental Chart Assessment with SVG graphics
         with st.container(border=True):
             st.header("Dental Chart Assessment")
 
@@ -128,34 +128,48 @@ def main():
                 if tooth in dental_chart:
                     teeth_map[tooth] = dental_chart[tooth]
 
+            # Function to create a smaller SVG for each tooth without additional text
+            def create_tooth_svg(tooth_number, condition):
+                color_map = {
+                    "Healthy": "green",
+                    "Cavity": "red",
+                    "Root Canal": "orange",
+                    "Extraction": "gray",
+                    "Decay": "brown",
+                    "Missing": "lightgray",
+                }
+                color = color_map.get(condition, "lightgray")
+                svg_code = f"""
+                <svg width="40" height="40" style="border:1px solid black; margin:5px;">
+                    <rect width="40" height="40" fill="{color}" />
+                    <text x="20" y="25" fill="white" font-size="12" text-anchor="middle">{tooth_number}</text>
+                </svg>
+                """
+                return svg_code
+
             teeth_rows = dental_data['teeth_rows']
             health_conditions = dental_data['health_conditions']
-
-            # Interactive dental chart with selectable conditions for each tooth
-            # Creates a visual grid representation of all teeth
             chart_changed = False
+
+            # Interactive dental chart: display each tooth with a condition selector and its SVG representation
             for teeth_row in teeth_rows:
-                # Create columns for each tooth in the row (8 teeth per row for standard dental chart)
                 column_array = st.columns(8)
                 for i, tooth_number in enumerate(teeth_row):
                     with column_array[i]:
-                        # Set default selection to current condition or "Healthy"
-                        default_index = 0
-                        if tooth_number in dental_chart:
-                            try:
-                                default_index = health_conditions.index(dental_chart[tooth_number])
-                            except ValueError:
-                                default_index = 0
+                        # Render the tooth as SVG in the UI
+                        tooth_condition = dental_chart.get(tooth_number, "Healthy")
+                        tooth_svg = create_tooth_svg(tooth_number, tooth_condition)
+                        st.markdown(tooth_svg, unsafe_allow_html=True)
 
                         # Dropdown selector for tooth condition
                         selected_condition = st.selectbox(
-                            f"Tooth {tooth_number}",
+                            "",
                             health_conditions,
-                            index=default_index,
+                            index=health_conditions.index(tooth_condition) if tooth_condition in health_conditions else 0,
                             key=f"tooth_{tooth_number}"
                         )
 
-                        # Track changes to dental chart
+                        # Track changes and update dental chart as needed
                         if tooth_number not in dental_chart or dental_chart[tooth_number] != selected_condition:
                             dental_chart[tooth_number] = selected_condition
                             chart_changed = True
@@ -164,7 +178,7 @@ def main():
                         if selected_condition != "Healthy":
                             st.session_state.tooth_selected = tooth_number
 
-            # Save dental chart changes to database
+            # Save dental chart changes to the database when modifications are detected
             if chart_changed:
                 doctor_reference = database.collection('doctors').document(st.session_state.doctor_email)
                 patient_document = doctor_reference.collection('patients').document(file_id)
@@ -172,35 +186,24 @@ def main():
                 st.session_state.patient_selected['dental_chart'] = dental_chart
                 st.success("Dental chart updated successfully!")
 
-        # Treatment plan creation section - allows adding treatments for specific teeth
+        # Treatment plan creation section
         with st.container(border=True):
             st.header("Treatment Plan")
-            # Default to previously selected tooth or first tooth in map
             tooth_selected = st.session_state.get("tooth_selected", list(teeth_map.keys())[0])
-
-            # Form to add new treatment procedures
             with st.form("treatment_form"):
                 column_first, column_second = st.columns(2)
                 with column_first:
-                    # Pre-select the tooth that was marked as unhealthy (if any)
                     tooth_identifier = st.selectbox("Tooth Number", list(teeth_map.keys()), index=list(teeth_map.keys()).index(tooth_selected))
                 with column_second:
                     treatment_procedure = st.selectbox("Procedure", dental_data['treatment_procedures'])
-
-                # Get cost from price estimates in data.json
                 price_estimates = dental_data['price_estimates']
                 procedure_price = price_estimates.get(treatment_procedure, 0)
-
                 submit_button = st.form_submit_button("➕ Add Procedure")
                 if submit_button:
-                    # Check for duplicate procedures - prevent adding same procedure to same tooth
                     existing_procedures = [item for item in st.session_state.treatment_record if item['Tooth'] == tooth_identifier and item['Procedure'] == treatment_procedure]
                     if not existing_procedures:
-                        # Calculate default dates for treatment timeline
                         today_str = datetime.today().strftime('%Y-%m-%d')
                         end_date_str = (datetime.today() + timedelta(days=7)).strftime('%Y-%m-%d')
-
-                        # Create new treatment record with default schedule
                         new_procedure = {
                             'Tooth': tooth_identifier,
                             'Procedure': treatment_procedure,
@@ -211,7 +214,6 @@ def main():
                             'End Date': end_date_str
                         }
                         st.session_state.treatment_record.append(new_procedure)
-                        # Update treatment plan in database
                         modify_treatment(st.session_state.doctor_email, file_id, st.session_state.treatment_record)
                         st.success("Procedure added to treatment plan")
                     else:
@@ -219,49 +221,34 @@ def main():
 
         # Display treatment plan and cost summary if procedures exist
         if st.session_state.treatment_record:
-            # Convert treatment record list to DataFrame for display
             data_frame = pd.DataFrame(st.session_state.treatment_record)
             st.dataframe(data_frame, use_container_width=True)
-
-            # Cost calculation section with discount and tax options
             st.subheader("Cost Summary")
             total_price = data_frame['Cost'].sum()
 
-            # Discount and VAT controls
             discount_amount = st.number_input("Discount Amount", min_value=0, step=1, format="%d")
             tax_apply = st.checkbox("Apply 15% VAT")
-
-            # Calculate final price with VAT and discount
             tax_calculation = total_price * 0.15 if tax_apply else 0
-            discount_calculation = discount_amount
-            # Ensure discount can't exceed total price
-            discount_calculation = min(discount_calculation, total_price)
+            discount_calculation = min(discount_amount, total_price)
             final_calculation = total_price - discount_calculation + tax_calculation
 
-            # Display cost breakdown in table format
             cost_details = pd.DataFrame({
                 "Total Cost": [f"SAR {total_price:.2f}"],
                 "Discount": [f"-SAR {discount_calculation:.2f}"],
                 "VAT (15%)": [f"+SAR {tax_calculation:.2f}"],
                 "Final Total": [f"SAR {final_calculation:.2f}"]
             })
-
             st.table(cost_details)
             st.info("NOTE: SAR = Saudi Arabian Riyal")
 
-            # Treatment status tracking system - allows updating progress for each procedure
+            # Treatment progress review and updates
             with st.expander("Treatment Progress", expanded=True):
                 with st.form("update_treatment_progress"):
                     status_updates = {}
-
-                    # Generate status controls for each procedure in the treatment plan
                     for index_position, row_data in data_frame.iterrows():
                         tooth = row_data['Tooth']
                         procedure = row_data['Procedure']
-                        # Create unique key for each tooth-procedure combination
                         key_id = f"{tooth}_{procedure}"
-
-                        # Status dropdown with current status pre-selected
                         status_value = st.selectbox(
                             f"Status for {procedure} on Tooth {tooth}",
                             ["Pending", "In Progress", "Completed"],
@@ -269,63 +256,46 @@ def main():
                             key=f"status_{key_id}"
                         )
                         status_updates[key_id] = status_value
-
                     submit_progress = st.form_submit_button("📋 Update Progress")
                     if submit_progress:
-                        # Apply status updates to all treatments
                         updated_treatments = []
                         for item in st.session_state.treatment_record:
                             tooth = item['Tooth']
                             procedure = item['Procedure']
                             key_id = f"{tooth}_{procedure}"
-
-                            # Update status based on user selection
                             item['Status'] = status_updates.get(key_id, item['Status'])
                             updated_treatments.append(item)
-
-                        # Save updated statuses to session and database
                         st.session_state.treatment_record = updated_treatments
                         modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
                         st.success("Treatment progress updated")
 
-            # Treatment scheduling interface - allows setting duration and start dates
+            # Treatment scheduling interface
             with st.expander("Treatment Schedule", expanded=True):
                 with st.form("update_treatment_timeline"):
                     today = datetime.today()
-
-                    # Determine default start date from existing data or use today
-                    # Logic handles different data formats and potential errors
                     default_start_date = today
                     if not data_frame.empty and 'Start Date' in data_frame.columns:
                         try:
                             first_date = data_frame['Start Date'].iloc[0]
                             if isinstance(first_date, str):
-                                # Convert string date to datetime object
                                 default_start_date = datetime.strptime(first_date, '%Y-%m-%d')
                             else:
                                 default_start_date = today
                         except (ValueError, TypeError):
-                            # Fallback to today's date on parsing errors
                             default_start_date = today
 
                     start_date = st.date_input("Start Date", value=default_start_date)
-
-                    # Adjust duration for each procedure individually
                     duration_updates = {}
                     for index_position, row_data in data_frame.iterrows():
                         tooth = row_data['Tooth']
                         procedure = row_data['Procedure']
                         key_id = f"{tooth}_{procedure}"
-
-                        # Get current duration or use default 7-day period
                         default_duration = 7
                         if 'Duration' in row_data:
                             try:
                                 default_duration = int(row_data['Duration'])
                             except (ValueError, TypeError):
                                 default_duration = 7
-
-                        # Allow setting duration for each treatment
                         duration_days = st.number_input(
                             f"Duration (days) for {procedure} on Tooth {tooth}",
                             min_value=1,
@@ -333,29 +303,19 @@ def main():
                             key=f"duration_{key_id}"
                         )
                         duration_updates[key_id] = duration_days
-
                     submit_timeline = st.form_submit_button("📅 Update Schedule")
                     if submit_timeline:
-                        # Apply schedule updates to all treatments
                         updated_treatments = []
                         start_date_str = start_date.strftime('%Y-%m-%d')
-
                         for item in st.session_state.treatment_record:
                             tooth = item['Tooth']
                             procedure = item['Procedure']
                             key_id = f"{tooth}_{procedure}"
-
-                            # Apply duration updates from form inputs
                             item['Duration'] = duration_updates.get(key_id, item.get('Duration', 7))
-
-                            # Set start date and calculate end date based on duration
                             item['Start Date'] = start_date_str
                             end_date = start_date + timedelta(days=item['Duration'])
                             item['End Date'] = end_date.strftime('%Y-%m-%d')
-
                             updated_treatments.append(item)
-
-                        # Save updated schedule to session and database
                         st.session_state.treatment_record = updated_treatments
                         modify_treatment(st.session_state.doctor_email, file_id, updated_treatments)
                         st.success("Treatment schedule updated")
@@ -364,38 +324,28 @@ def main():
             if not data_frame.empty:
                 st.subheader("Treatment Schedule Overview")
                 display_df = data_frame.copy()
-
-                # Ensure all required columns exist, fill with defaults if missing
                 required_columns = ['Tooth', 'Procedure', 'Status', 'Start Date', 'End Date']
                 for col in required_columns:
                     if col not in display_df.columns:
-                        # Set appropriate defaults for missing columns
                         if col == 'Start Date':
                             display_df[col] = datetime.today().strftime('%Y-%m-%d')
                         elif col == 'End Date':
                             display_df[col] = (datetime.today() + timedelta(days=7)).strftime('%Y-%m-%d')
                         else:
                             display_df[col] = "N/A"
-
-                # Show simplified view with just the key scheduling information
                 st.table(display_df[required_columns])
 
-            # Dental imaging and report generation section
+            # Dental imaging and report generation
             st.subheader("Dental Imaging")
             st.info("⚠️ Dental imaging and PDF report generation features are currently under development")
-
-            # X-ray image upload functionality - saves uploaded image to file system
             image_file = st.file_uploader("Upload X-Ray Image", type=["jpg", "png", "jpeg"])
             image_path = None
             if image_file:
-                # Save uploaded image with patient name in filename
                 image_path = f"xray_{patient_info['name'] or 'unknown'}.png"
                 with open(image_path, "wb") as file_handler:
                     file_handler.write(image_file.getbuffer())
-                # Display the uploaded image in the app
                 st.image(image_file, caption="Uploaded X-Ray Image", use_container_width=True)
 
-            # PDF report generation - creates and downloads treatment plan as PDF
             if st.button("📄 Generate Treatment Report"):
                 try:
                     pdf_path = generate_pdf(
@@ -407,12 +357,8 @@ def main():
                         final_calculation,
                         image_path
                     )
-
-                    # Read generated PDF for download
                     with open(pdf_path, "rb") as file_handler:
                         pdf_content = file_handler.read()
-
-                    # Create download button for the PDF file
                     file_name = f"{patient_info['name'] or 'unknown'}_treatment_plan.pdf"
                     st.download_button(
                         label="Download Treatment Report",
@@ -420,13 +366,9 @@ def main():
                         file_name=file_name,
                         mime="application/pdf"
                     )
-
                     st.success(f"Treatment report generated successfully: {file_name}")
                 except Exception as error_message:
                     st.error(f"Report Generation Error: {error_message}")
-                # finally:
-                #     if os.path.exists(pdf_path):
-                #         os.remove(pdf_path)
 
         else:
             st.info("No procedures have been added to the treatment plan yet")
@@ -434,10 +376,8 @@ def main():
     # Option to reset active patient - clears session state
     if st.session_state.patient_status:
         if st.button("🔄 Clear Current Patient"):
-            # Reset patient-related session state variables
             st.session_state.patient_status = False
             st.session_state.treatment_record = []
-            # Refresh the UI
             st.rerun()
 
 
