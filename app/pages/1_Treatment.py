@@ -5,14 +5,14 @@ from datetime import datetime, timedelta
 from firebase_admin import firestore
 from utils import show_footer, generate_pdf
 
-# Initialize session state variables to track patient status and treatment records
+# Initialize session state variables
 if 'patient_status' not in st.session_state:
     st.session_state.patient_status = False
 
 if 'treatment_record' not in st.session_state:
     st.session_state.treatment_record = []
 
-# Load dental procedures and pricing data from config file
+# Load dental procedures and pricing data
 with open('data.json', 'r') as file:
     dental_data = json.load(file)
 
@@ -20,13 +20,13 @@ database = firestore.client()
 
 
 def store_patient(doctor_email, patient_info):
-    """Store new patient information in Firestore under the doctor's collection"""
+    """Store new patient information in Firestore"""
     doctor_reference = database.collection('doctors').document(doctor_email)
     doctor_reference.collection('patients').document(patient_info["file_id"]).set(patient_info)
 
 
 def fetch_patient(doctor_email, file_id):
-    """Retrieve patient data from Firestore using doctor email and patient file ID"""
+    """Retrieve patient data from Firestore"""
     doctor_reference = database.collection('doctors').document(doctor_email)
     patient_document = doctor_reference.collection('patients').document(file_id).get()
     if patient_document.exists:
@@ -42,46 +42,77 @@ def modify_treatment(doctor_email, file_id, treatment_record):
 
 
 def format_date(dt, fmt='%Y-%m-%d'):
-    """Helper function to format dates consistently"""
+    """Format dates consistently"""
     return dt.strftime(fmt)
+
+
+def create_tooth_svg(tooth_number, condition):
+    """Create SVG representation of a tooth with minimal styling"""
+    color_map = {
+        "Healthy": "green",
+        "Cavity": "red",
+        "Root Canal": "orange",
+        "Extraction": "gray",
+        "Decay": "brown",
+        "Missing": "lightgray",
+    }
+    color = color_map.get(condition, "lightgray")
+    svg_code = f"""
+        <svg width="40" height="40" style="border:1px solid black; margin:0;">
+            <rect width="40" height="40" fill="{color}" />
+            <text x="20" y="25" fill="white" font-size="12" font-weight="bold" text-anchor="middle">{tooth_number}</text>
+        </svg>
+    """
+    return svg_code
 
 
 def main():
     st.title("Dental Treatment Planner")
 
-    # Authentication check - prevent access without login
+    # Add custom styling for reduced spacing
+    st.markdown("""
+        <style>
+        .dropdown-container {
+            margin-top: 1mm !important;
+        }
+        .custom-svg {
+            margin-bottom: 1mm;
+            display: flex;
+            justify-content: center;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Authentication check
     if st.session_state.get('doctor_email') is None:
         st.error("Doctor Authentication Required: Please log in to access patient management")
         return
 
     st.header("Patient Registration")
 
-    # Patient registration form - split into two columns for better layout
-    column_first, column_second = st.columns(2)
-    with column_first:
+    # Patient registration form
+    col1, col2 = st.columns(2)
+    with col1:
         patient_fullname = st.text_input("Full Name", placeholder="Enter patient's full name")
         patient_age = st.number_input("Age", min_value=1, max_value=150, step=1)
-    with column_second:
+    with col2:
         patient_gender = st.selectbox("Gender", ["Male", "Female", "Other"])
         file_id = st.text_input("File ID", placeholder="Enter File ID")
 
-    # Action buttons layout for registration and search
-    col1, col2 = st.columns(2)
-    with col1:
+    # Registration and search buttons
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
         register_button = st.button("➕ Register Patient")
-    with col2:
+    with action_col2:
         search_button = st.button("🔍 Search Patient")
 
-    # Patient registration logic - validates and stores new patient data
+    # Registration logic
     if register_button:
         if patient_fullname and patient_age and file_id:
-            # Check if patient with same ID already exists to prevent duplicates
             existing_patient = fetch_patient(st.session_state.doctor_email, file_id)
             if existing_patient:
-                st.error(f"Registration Error: File ID {file_id} already exists in the database")
-                st.session_state.patient_status = False
+                st.error(f"File ID {file_id} already exists in the database.")
             else:
-                # Create new patient record with empty dental chart and treatment plan
                 patient_info = {
                     'name': patient_fullname,
                     'age': patient_age,
@@ -94,100 +125,60 @@ def main():
                 st.session_state.patient_status = True
                 st.session_state.patient_selected = patient_info
                 st.session_state.treatment_record = []
-                st.success(f"Registration Successful: Patient {patient_fullname} added to database")
+                st.success(f"Patient {patient_fullname} has been registered.")
         else:
-            st.error("Registration Error: All fields are required to complete registration")
-            st.session_state.patient_status = False
+            st.error("Please fill all fields to complete registration.")
 
-    # Patient search functionality - uses file_id to find existing patient
+    # Patient search logic
     if search_button and file_id:
         patient_info = fetch_patient(st.session_state.doctor_email, file_id)
         if patient_info:
-            st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
+            st.success(f"Patient found: {patient_info['name']}, Age {patient_info['age']}")
             st.session_state.patient_status = True
             st.session_state.patient_selected = patient_info
-            # Load existing treatment plan if available
             st.session_state.treatment_record = patient_info.get('treatment_plan', [])
         else:
-            st.warning("Patient Lookup Failed: No records match this file ID")
-            st.session_state.patient_status = False
+            st.warning("No patient found with the given ID.")
 
-    # Display patient details and treatment options when a patient is active
+    # If a patient is selected
     if st.session_state.patient_status:
         patient_info = st.session_state.patient_selected
         file_id = patient_info['file_id']
 
-        st.divider()
         st.subheader(f"Active Patient: {patient_info['name']} (ID: {file_id})")
 
-        # Enhanced Dental Chart Assessment with SVG graphics
-        with st.container(border=True):
+        # Dental Chart Assessment
+        with st.container():
             st.header("Dental Chart Assessment")
-
-            # Get existing dental chart or initialize empty dict
             dental_chart = patient_info.get('dental_chart', {})
-            teeth_map = dental_data['teeth_map'].copy()
-
-            # Merge existing dental chart data with teeth map
-            for tooth in teeth_map:
-                if tooth in dental_chart:
-                    teeth_map[tooth] = dental_chart[tooth]
-
-            def create_tooth_svg(tooth_number, condition):
-                color_map = {
-                    "Healthy": "green",
-                    "Cavity": "red",
-                    "Root Canal": "orange",
-                    "Extraction": "gray",
-                    "Decay": "brown",
-                    "Missing": "lightgray",
-                }
-                color = color_map.get(condition, "lightgray")
-                svg_code = f"""
-                <svg width="40" height="40" style="border:1px solid black; margin:5px;">
-                    <rect width="40" height="40" fill="{color}" />
-                    <text x="20" y="25" fill="white" font-size="12" text-anchor="middle">{tooth_number}</text>
-                </svg>
-                """
-                return svg_code
-
-            teeth_rows = dental_data['teeth_rows']
+            teeth_map = dental_data['teeth_map']
             health_conditions = dental_data['health_conditions']
-            chart_changed = False
+            teeth_rows = dental_data['teeth_rows']
+            chart_updated = False
 
-            # Display interactive dental chart
-            for teeth_row in teeth_rows:
-                column_array = st.columns(8)
-                for i, tooth_number in enumerate(teeth_row):
-                    with column_array[i]:
-                        # Render the tooth SVG
-                        tooth_condition = dental_chart.get(tooth_number, "Healthy")
-                        tooth_svg = create_tooth_svg(tooth_number, tooth_condition)
-                        st.markdown(tooth_svg, unsafe_allow_html=True)
-
-                        # Dropdown selector for tooth condition
+            # Display Teeth Chart with Dropdown
+            for row in teeth_rows:
+                tooth_columns = st.columns(len(row))
+                for idx, tooth in enumerate(row):
+                    with tooth_columns[idx]:
+                        tooth_condition = dental_chart.get(tooth, "Healthy")
+                        svg_code = create_tooth_svg(tooth, tooth_condition)
+                        st.markdown(f'<div class="custom-svg">{svg_code}</div>', unsafe_allow_html=True)
                         selected_condition = st.selectbox(
                             "",
                             health_conditions,
-                            index=health_conditions.index(
-                                tooth_condition) if tooth_condition in health_conditions else 0,
-                            key=f"tooth_{tooth_number}"
+                            index=health_conditions.index(tooth_condition),
+                            key=f"dropdown_{tooth}"
                         )
+                        if tooth not in dental_chart or dental_chart[tooth] != selected_condition:
+                            dental_chart[tooth] = selected_condition
+                            chart_updated = True
 
-                        # Update dental chart if changes detected
-                        if tooth_number not in dental_chart or dental_chart[tooth_number] != selected_condition:
-                            dental_chart[tooth_number] = selected_condition
-                            chart_changed = True
-
-                        # Auto-select unhealthy teeth for potential treatment
-                        if selected_condition != "Healthy":
-                            st.session_state.tooth_selected = tooth_number
-
-            # Save dental chart updates if any modifications were made
-            if chart_changed:
-                doctor_reference = database.collection('doctors').document(st.session_state.doctor_email)
-                patient_document = doctor_reference.collection('patients').document(file_id)
-                patient_document.update({'dental_chart': dental_chart})
+            # Save Chart Updates
+            if chart_updated:
+                doc_ref = database.collection('doctors').document(st.session_state.doctor_email)
+                patient_record = doc_ref.collection('patients').document(file_id)
+                patient_record.update({'dental_chart': dental_chart})
                 st.session_state.patient_selected['dental_chart'] = dental_chart
                 st.success("Dental chart updated successfully!")
 
@@ -391,7 +382,7 @@ def main():
             if clear_button:
                 st.session_state.patient_status = False
                 st.session_state.treatment_record = []
-                st.experimental_rerun()
+                st.rerun()
 
             # Edit patient form logic
             if edit_button:
