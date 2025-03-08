@@ -394,8 +394,8 @@ def main():
                                                   value=patient_info.get("age", 1))
                     updated_gender = st.selectbox(
                         "Gender",
-                        ["Male", "Female", "Other"],
-                        index=["Male", "Female", "Other"].index(patient_info.get("gender", "Male"))
+                        ["Male", "Female"],
+                        index=["Male", "Female"].index(patient_info.get("gender", "Male"))
                     )
                     updated_file_id = st.text_input("File ID", value=patient_info.get("file_id", ""))
 
