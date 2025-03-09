@@ -1,72 +1,50 @@
 {
-    "teeth_map": {
-        "11": "Upper Right Central Incisor",
-        "12": "Upper Right Lateral Incisor",
-        "13": "Upper Right Canine",
-        "14": "Upper Right First Premolar",
-        "15": "Upper Right Second Premolar",
-        "16": "Upper Right First Molar",
-        "17": "Upper Right Second Molar",
-        "18": "Upper Right Third Molar",
-        "21": "Upper Left Central Incisor",
-        "22": "Upper Left Lateral Incisor",
-        "23": "Upper Left Canine",
-        "24": "Upper Left First Premolar",
-        "25": "Upper Left Second Premolar",
-        "26": "Upper Left First Molar",
-        "27": "Upper Left Second Molar",
-        "28": "Upper Left Third Molar",
-        "31": "Lower Left Central Incisor",
-        "32": "Lower Left Lateral Incisor",
-        "33": "Lower Left Canine",
-        "34": "Lower Left First Premolar",
-        "35": "Lower Left Second Premolar",
-        "36": "Lower Left First Molar",
-        "37": "Lower Left Second Molar",
-        "38": "Lower Left Third Molar",
-        "41": "Lower Right Central Incisor",
-        "42": "Lower Right Lateral Incisor",
-        "43": "Lower Right Canine",
-        "44": "Lower Right First Premolar",
-        "45": "Lower Right Second Premolar",
-        "46": "Lower Right First Molar",
-        "47": "Lower Right Second Molar",
-        "48": "Lower Right Third Molar"
-    },
-    "teeth_rows": [
-        ["18", "17", "16", "15", "14", "13", "12", "11"],
-        ["21", "22", "23", "24", "25", "26", "27", "28"],
-        ["48", "47", "46", "45", "44", "43", "42", "41"],
-        ["31", "32", "33", "34", "35", "36", "37", "38"]
-    ],
-    "health_conditions": [
-        "Healthy",
-        "Cavity",
-        "Root Canal",
-        "Extraction",
-        "Decay",
-        "Missing",
-        "Implant",
-        "Fracture"
-    ],
-    "treatment_procedures": [
-        "Cleaning",
-        "Filling",
-        "Root Canal",
-        "Crown",
-        "Extraction",
-        "Implant",
-        "Bridge",
-        "Veneer"
-    ],
-    "price_estimates": {
-        "Cleaning": 200,
-        "Filling": 300,
-        "Root Canal": 1500,
-        "Crown": 2000,
-        "Extraction": 500,
-        "Implant": 4000,
-        "Bridge": 3000,
-        "Veneer": 2500
-    }
+  "teeth_map": {
+    "18": "", "17": "", "16": "", "15": "", "14": "", "13": "", "12": "", "11": "",
+    "21": "", "22": "", "23": "", "24": "", "25": "", "26": "", "27": "", "28": "",
+    "48": "", "47": "", "46": "", "45": "", "44": "", "43": "", "42": "", "41": "",
+    "31": "", "32": "", "33": "", "34": "", "35": "", "36": "", "37": "", "38": ""
+  },
+  "teeth_rows": [
+    ["18", "17", "16", "15", "14", "13", "12", "11"],
+    ["21", "22", "23", "24", "25", "26", "27", "28"],
+    ["48", "47", "46", "45", "44", "43", "42", "41"],
+    ["31", "32", "33", "34", "35", "36", "37", "38"]
+  ],
+  "health_conditions": [
+    "Cavity",
+    "Decayed",
+    "Extraction",
+    "Filled",
+    "Fractured",
+    "Healthy",
+    "Impacted",
+    "Implant",
+    "Missing",
+    "Root Canal"
+  ],
+  "treatment_procedures": [
+    "Bridge",
+    "Cleaning",
+    "Crown",
+    "Denture",
+    "Extraction",
+    "Filling",
+    "Implant",
+    "Root Canal",
+    "Scaling",
+    "Veneer"
+  ],
+  "price_estimates": {
+    "Bridge": 3000,
+    "Cleaning": 200,
+    "Crown": 2000,
+    "Denture": 1500,
+    "Extraction": 500,
+    "Filling": 300,
+    "Implant": 4000,
+    "Root Canal": 1500,
+    "Scaling": 100,
+    "Veneer": 2500
+  }
 }

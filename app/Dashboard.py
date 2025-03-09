@@ -14,7 +14,7 @@ st.set_page_config(
 
 # Initialize Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate("../firebase-config.json")
+    cred = credentials.Certificate("./firebase-config.json")
     firebase_admin.initialize_app(cred)
 
 database = firestore.client()
@@ -39,12 +39,27 @@ def main():
 
         show_nav()
 
-        # Logout button
+        # Logout, Reset Password, and Delete Account buttons
         st.divider()
         st.markdown("### Account Settings")
-        if st.button("Logout", icon="↩️"):
-            st.session_state.clear()  # Clear session state on logout
-            st.rerun()  # Refresh the app
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if st.button("Logout", icon="↩️", use_container_width=True):
+                st.session_state.clear()  # Clear session state on logout
+                st.rerun()  # Refresh the app
+
+        with col2:
+            if st.button("Reset Password", icon="🔄", use_container_width=True):
+                reset_password()
+
+        with col3:
+            if st.button("Delete Account", icon="🗑️", use_container_width=True):
+                delete_account()
+
+        # Support section
+        st.divider()
+        show_support()
 
         # Team section
         st.divider()
@@ -61,9 +76,6 @@ def main():
             sign_up()
         else:
             sign_in()
-
-        if st.button("Reset Password", icon="🔄"):
-            reset_password()
 
         st.divider()
         show_support()
@@ -99,7 +111,7 @@ def show_info():
         )
 
     with col2:
-        st.image("../assets/logo.jpg", caption="Demo Video Coming Soon")
+        st.image("./assets/logo.jpg", caption="Demo Video Coming Soon")
 
 
 def show_support():
@@ -119,13 +131,13 @@ def show_team():
     team_col1, team_col2 = st.columns(2)
 
     with team_col1:
-        st.image("../assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
+        st.image("./assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
         st.markdown("**Bachelor of Dental Surgery**")
         st.markdown("Al-Ameen Dental College, Vijayapura (1996-2001)")
         st.markdown("📧 Contact: [noordentist@gmail.com](mailto:noordentist@gmail.com)")
 
     with team_col2:
-        st.image("../assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
+        st.image("./assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
         st.markdown("**Student Developer, B.E CSE**")
         st.markdown("Dayananda Sagar College of Engineering, Bangaluru (2022-2026)")
         st.markdown("📧 Contact: [hi@areeb.cloud](mailto:hi@areeb.cloud)")
@@ -152,8 +164,8 @@ def show_nav():
             st.switch_page("pages/4_Contact.py")
 
     with col5:
-        if st.button("❤️ Support Us", use_container_width=True):
-            show_support()
+        if st.button("⚙️ Settings", use_container_width=True):
+            st.switch_page("pages/5_Settings.py")
 
 
 def sign_up():
@@ -162,7 +174,7 @@ def sign_up():
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
-    if st.button("Sign Up", icon="🔒"):
+    if st.button("Sign Up", icon="🔒", use_container_width=True):
         try:
             # Create user in Firebase Authentication
             user = auth.create_user(email=email, password=password)
@@ -186,30 +198,34 @@ def sign_in():
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
-    if st.button("Log In", icon="🔓"):
-        try:
-            # Verify user exists in Firebase Authentication
-            user = auth.get_user_by_email(email)
-            doctor_name = database.collection("doctors").document(email).get().to_dict()["name"]
+    col1, col2 = st.columns(2)  # Split into two columns
 
-            # Store session details
-            st.success(f"Welcome, Dr. {doctor_name}!")
-            st.session_state["logged_in"] = True
-            st.session_state["doctor_name"] = doctor_name
-            st.session_state["doctor_email"] = email
+    with col1:
+        if st.button("Log In", icon="🔓", use_container_width=True):
+            try:
+                user = auth.get_user_by_email(email)
+                doctor_name = database.collection("doctors").document(email).get().to_dict()["name"]
 
-            # Rerun the app to show the navigation buttons
-            st.rerun()
-        except firebase_admin.auth.UserNotFoundError:
-            st.error("Invalid email or password.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+                st.success(f"Welcome, Dr. {doctor_name}!")
+                st.session_state["logged_in"] = True
+                st.session_state["doctor_name"] = doctor_name
+                st.session_state["doctor_email"] = email
+
+                st.rerun()
+            except firebase_admin.auth.UserNotFoundError:
+                st.error("Invalid email or password.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with col2:
+        if st.button("Reset Password", icon="🔄", use_container_width=True):
+            reset_password()
 
 
 # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
-def reset_password():
+def reset_password():  # Not working
     email = st.text_input("Enter your email")
-    if st.button("Send Reset Email", icon="🔄"):
+    if st.button("Send Reset Email", icon="🔄", use_container_width=True):
         try:
             auth.generate_password_reset_link(email)  # Send password reset email
             st.success("Password reset email sent. Check your inbox.")
@@ -219,9 +235,24 @@ def reset_password():
             st.error(f"Error: {e}")
 
 
-# TODO: https://firebase.google.com/docs/auth/admin/manage-users#delete_a_user
 def delete_account():
-    pass # Make sure to delete the user from Auth AND Firestore
+    email = st.session_state.get("doctor_email")
+    if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
+        try:
+            # Delete document from Firestore
+            database.collection("doctors").document(email).delete()
+
+            # Delete user from Firebase Authentication
+            user = auth.get_user_by_email(email)
+            auth.delete_user(user.uid)
+
+            st.success("Account deleted successfully!")
+            st.session_state.clear()  # Clear session state
+            st.rerun()  # Refresh the app
+        except firebase_admin.auth.UserNotFoundError:
+            st.error("User not found.")
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":
