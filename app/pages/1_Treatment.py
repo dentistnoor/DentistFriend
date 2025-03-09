@@ -441,7 +441,6 @@ def main():
                 # finally:
                 #     if os.path.exists(pdf_path):
                 #         os.remove(pdf_path)
-
         else:
             st.info("No procedures have been added to the treatment plan yet")
 

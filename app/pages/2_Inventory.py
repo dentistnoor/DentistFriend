@@ -257,7 +257,7 @@ def show_reports(inventory_data):
         for item_name, details in inventory_data.items():
             expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
             days_until_expiry = (expiry_date - today).days
-            
+
             inventory_records.append({
                 "Item": item_name.capitalize(),
                 "Quantity": details["quantity"],
