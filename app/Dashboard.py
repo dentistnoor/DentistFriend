@@ -32,7 +32,7 @@ def main():
         # Logged-in user view
         current_date = datetime.datetime.now()
         date_str = current_date.strftime("%A, %B %d, %Y")
-        time_str = current_date.strftime("%H:%M")
+        time_str = current_date.strftime("%H:%M %p")
 
         st.subheader(f"Welcome, Dr. {st.session_state['doctor_name']}!")
         st.caption(f"{date_str} | {time_str}")
