@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from datetime import datetime
 from firebase_admin import firestore
 from utils import show_footer
@@ -207,53 +208,95 @@ def show_alerts(inventory_data):
 def show_reports(inventory_data):
     """Generate inventory reports and export data"""
     st.header("Inventory Reports")
-    report_tab1, report_tab2 = st.tabs(["Summary", "Export Data"])
+    
+    if inventory_data:
+        st.subheader("Summary")
+        
+        # Calculate total items, units, and items expiring soon
+        total_items = len(inventory_data)
+        total_units = sum(item["quantity"] for item in inventory_data.values())
+        today = datetime.today().date()
+        expiring_soon = sum(1 for item, details in inventory_data.items()
+                            if (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days <= 30)
 
-    with report_tab1:
-        if inventory_data:
-            # Calculate summary statistics
-            total_items = len(inventory_data)
-            total_units = sum(item["quantity"] for item in inventory_data.values())
-            today = datetime.today().date()
-            expiring_soon = sum(1 for item, details in inventory_data.items()
-                                if (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days <= 30)
+        summary_data = {
+            "Metric": ["Total Items", "Total Units", "Expiring Within 30 Days"],
+            "Value": [total_items, total_units, expiring_soon]
+        }
+        summary_df = pd.DataFrame(summary_data)
+        st.table(summary_df)
 
-            summary_data = {
-                "Metric": ["Total Items", "Total Units", "Expiring Within 30 Days"],
-                "Value": [total_items, total_units, expiring_soon]
-            }
-            summary_df = pd.DataFrame(summary_data)
-            st.table(summary_df)
-        else:
-            st.info("Report Status: No inventory data available")
+        # Generate downloadable report
+        if st.button("📊 Generate Inventory Report", use_container_width=True):
+            # Prepare data for export
+            inventory_records = []
+            for item_name, details in inventory_data.items():
+                inventory_records.append({
+                    "Item": item_name.capitalize(),
+                    "Quantity": details["quantity"],
+                    "Expiry Date": details["expiry_date"],
+                    "Days Until Expiry": (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days
+                })
 
-    with report_tab2:
-        if inventory_data:
-            if st.button("📊 Generate Report"):
-                # Create downloadable CSV report
-                today = datetime.today().date()
-                inventory_records = []
-                for item_name, details in inventory_data.items():
-                    inventory_records.append({
-                        "Item": item_name.capitalize(),
-                        "Quantity": details["quantity"],
-                        "Expiry Date": details["expiry_date"],
-                        "Days Until Expiry": (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days
-                    })
+            export_df = pd.DataFrame(inventory_records)
+            csv = export_df.to_csv(index=False)
 
-                export_df = pd.DataFrame(inventory_records)
-                csv = export_df.to_csv(index=False)
+            st.download_button(
+                label="Download Inventory Report",
+                data=csv,
+                file_name=f"inventory_report_{datetime.today().strftime('%Y-%m-%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+            st.success("Report Generated: Inventory data exported successfully")
 
-                st.download_button(
-                    label="Download Inventory Report",
-                    data=csv,
-                    file_name=f"inventory_report_{datetime.today().strftime('%Y-%m-%d')}.csv",
-                    mime="text/csv"
+        # Visualizations section
+        st.subheader("Inventory Visualizations")
+        inventory_records = []  # Prepare data for visualization
+
+        for item_name, details in inventory_data.items():
+            expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
+            days_until_expiry = (expiry_date - today).days
+            
+            inventory_records.append({
+                "Item": item_name.capitalize(),
+                "Quantity": details["quantity"],
+                "Days Until Expiry": days_until_expiry
+            })
+
+        viz_df = pd.DataFrame(inventory_records)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Top items by quantity
+            top_items = viz_df.sort_values("Quantity", ascending=False).head(10)
+            fig1 = px.bar(
+                top_items,
+                x="Item",
+                y="Quantity",
+                title="Top Items by Quantity",
+                color="Quantity",
+                color_continuous_scale="Blues"
+            )
+            fig1.update_layout(xaxis_title="Item", yaxis_title="Quantity")
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col2:
+            # Items closest to expiry
+            if len(viz_df) > 0 and "Days Until Expiry" in viz_df.columns:
+                expiry_sorted = viz_df.sort_values("Days Until Expiry").head(10)
+                fig2 = px.bar(
+                    expiry_sorted,
+                    x="Item",
+                    y="Days Until Expiry",
+                    title="Items Closest to Expiry",
+                    color="Days Until Expiry",
+                    color_continuous_scale="RdYlGn",
                 )
-
-                st.success("Report Generated: Inventory data exported successfully")
-        else:
-            st.info("Export Status: No data available for export")
+                fig2.update_layout(xaxis_title="Item", yaxis_title="Days Until Expiry")
+                st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("Report Status: No inventory data available")
 
 
 main()

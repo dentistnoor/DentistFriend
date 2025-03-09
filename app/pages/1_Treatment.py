@@ -429,6 +429,7 @@ def main():
                     file_name = f"{patient_info['name'] or 'unknown'}_treatment_plan.pdf"
                     st.download_button(
                         label="Download Treatment Report",
+                        use_container_width=True,
                         data=pdf_content,
                         file_name=file_name,
                         mime="application/pdf"
