@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from firebase_admin import firestore
-from utils import show_footer
+from utils import format_date, show_footer
 
 # Initialize Firestore database connection
 database = firestore.client()
@@ -64,9 +64,6 @@ def main():
     with st.container(border=True):
         st.header("Current Inventory")
         show_inventory(inventory_data)
-
-    with st.container(border=True):
-        search_items(inventory_data)
 
     with st.container(border=True):
         show_alerts(inventory_data)
@@ -131,26 +128,13 @@ def show_inventory(inventory_data):
             inventory_records.append({
                 "Item": item_name.capitalize(),
                 "Quantity": details["quantity"],
-                "Expiry Date": details["expiry_date"]
+                "Expiry Date": format_date(details["expiry_date"])
             })
 
         inventory_df = pd.DataFrame(inventory_records)
         st.dataframe(inventory_df, use_container_width=True)
     else:
         st.info("Inventory Status: No items currently in stock")
-
-
-def search_items(inventory_data):
-    """Search for specific items in inventory"""
-    st.header("Inventory Search")
-    search_term = st.text_input("Search Item", placeholder="Enter item name to search").strip().lower()
-
-    if st.button("🔍 Search Items"):
-        if search_term in inventory_data:
-            details = inventory_data[search_term]
-            st.success(f"Item Located: '{search_term.capitalize()}' found with {details['quantity']} units, Expiry: {details['expiry_date']}")
-        else:
-            st.warning(f"Search Failed: '{search_term.capitalize()}' not found in inventory")
 
 
 def show_alerts(inventory_data):
@@ -192,7 +176,7 @@ def show_alerts(inventory_data):
                 expiry_items.append({
                     "Item": item.capitalize(),
                     "Quantity": details["quantity"],
-                    "Expiry Date": details["expiry_date"],
+                    "Expiry Date": format_date(details["expiry_date"]),
                     "Days Left": days_until_expiry
                 })
 
@@ -208,10 +192,10 @@ def show_alerts(inventory_data):
 def show_reports(inventory_data):
     """Generate inventory reports and export data"""
     st.header("Inventory Reports")
-    
+
     if inventory_data:
         st.subheader("Summary")
-        
+
         # Calculate total items, units, and items expiring soon
         total_items = len(inventory_data)
         total_units = sum(item["quantity"] for item in inventory_data.values())
@@ -234,7 +218,7 @@ def show_reports(inventory_data):
                 inventory_records.append({
                     "Item": item_name.capitalize(),
                     "Quantity": details["quantity"],
-                    "Expiry Date": details["expiry_date"],
+                    "Expiry Date": format_date(details["expiry_date"]),
                     "Days Until Expiry": (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days
                 })
 

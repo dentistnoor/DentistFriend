@@ -12,20 +12,20 @@
     ["31", "32", "33", "34", "35", "36", "37", "38"]
   ],
   "health_conditions": [
+    "Healthy",
     "Cavity",
     "Decayed",
     "Extraction",
     "Filled",
     "Fractured",
-    "Healthy",
     "Impacted",
     "Implant",
     "Missing",
     "Root Canal"
   ],
   "treatment_procedures": [
-    "Bridge",
     "Cleaning",
+    "Bridge",
     "Crown",
     "Denture",
     "Extraction",
@@ -36,8 +36,8 @@
     "Veneer"
   ],
   "price_estimates": {
-    "Bridge": 3000,
     "Cleaning": 200,
+    "Bridge": 3000,
     "Crown": 2000,
     "Denture": 1500,
     "Extraction": 500,

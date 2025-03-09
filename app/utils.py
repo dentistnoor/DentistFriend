@@ -4,7 +4,21 @@ from datetime import datetime
 from fpdf import FPDF
 
 
+def format_date(date_str):
+    """Convert date string to formatted date (e.g., '2021-12-31' -> 'December 31, 2021')"""
+    if isinstance(date_str, datetime):
+        date_obj = date_str
+    else:
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        except (ValueError, TypeError):
+            return date_str  # Return original if parsing fails
+
+    return date_obj.strftime('%B %d, %Y')
+
+
 def show_footer():
+    """Display the footer with links to GitHub, License, and Documentation"""
     st.divider()
     st.markdown(
         """
@@ -21,45 +35,71 @@ def show_footer():
 
 
 def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, total_cost=0, xray_image_path=None):
+    """Generate a PDF document with treatment plan details and patient information"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')  # Initialize PDF
     pdf.add_page()  # Add a new page to the PDF
 
-    pdf.set_font("Arial", "B", 16)  # Set font for title
-    pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, 'C')  # Add title
+    # Set up document title and date
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, 'C')
 
-    pdf.set_font("Arial", "", 10)  # Set font for date
+    pdf.set_font("Arial", "", 10)
     current_date = datetime.now().strftime("%B %d, %Y")
-    pdf.cell(0, 6, f"Date: {current_date}", 0, 1, 'R')  # Add current date
+    pdf.cell(0, 6, f"Date: {current_date}", 0, 1, 'R')
 
-    pdf.ln(5)  # Add space
-    pdf.set_font("Arial", "B", 12)  # Set font for section title
-    pdf.cell(0, 10, "Patient Information", 0, 1, 'L')  # Section title
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Underline section title
-    pdf.ln(2)  # Add space
+    # Add patient information section
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Patient Information", 0, 1, 'L')
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
 
-    # Add patient and doctor information
+    # Add patient and doctor details
     pdf.set_font("Arial", "", 12)
     pdf.cell(0, 8, f"Treating Dentist: {doctor_name}", 0, 1)
     pdf.cell(0, 8, f"Patient Name: {patient_name}", 0, 1)
     pdf.cell(0, 8, f"Report ID: {datetime.now().strftime('%Y%m%d%H%M')}", 0, 1)
 
-    pdf.ln(5)  # Add space
-    pdf.set_font("Arial", "B", 12)  # Set font for treatment plan title
-    pdf.cell(0, 10, "Treatment Plan Details", 0, 1, 'L')  # Treatment plan section title
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Underline treatment plan title
-    pdf.ln(2)  # Add space
+    # Add X-ray image if available
+    if xray_image_path and os.path.exists(xray_image_path):
+        pdf.ln(5)
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "Dental X-Ray", 0, 1, 'L')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
 
-    # Check if treatment plan exists
+        try:
+            current_y = pdf.get_y()
+            if current_y > 200:  # Add new page if needed
+                pdf.add_page()
+                current_y = pdf.get_y()
+
+            # Add X-ray image centered on page
+            pdf.image(xray_image_path, x=50, y=current_y, w=100)
+            pdf.ln(85)  # Add space after image
+        except Exception as e:
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 10, f"Error loading X-ray image: {str(e)}", 0, 1)
+
+    # Add treatment plan details section
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Treatment Plan Details", 0, 1, 'L')
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
+
+    # Display treatments or message if no treatments
     if not treatment_plan:
         pdf.set_font("Arial", "", 12)
         pdf.cell(0, 10, "No treatment procedures have been defined yet.", 0, 1)
     else:
-        pdf.set_font("Arial", "B", 10)  # Set font for table headers
-        pdf.set_fill_color(230, 230, 230)  # Set fill color for headers
+        # Create treatment table with headers
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_fill_color(230, 230, 230)
 
-        # Define table columns and widths
-        columns = ['Tooth', 'Procedure', 'Cost', 'Status', 'Start Date', 'End Date']
-        col_widths = [20, 50, 25, 25, 35, 35]
+        # Define table structure and layout
+        columns = ['Tooth', 'Procedure', 'Status', 'Start Date', 'End Date', 'Cost']
+        col_widths = [20, 50, 25, 35, 35, 25]
 
         available_columns = []
         available_widths = []
@@ -70,37 +110,38 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
                 available_columns.append(col)
                 available_widths.append(col_widths[i])
 
+        # Adjust column widths to fit page
         total_width = sum(available_widths)
-        # Scale columns if the total width is too small
         if total_width < 190:
             scale_factor = 190 / total_width
             available_widths = [w * scale_factor for w in available_widths]
 
-        # Add table headers
+        # Create table header row
         for i, col in enumerate(available_columns):
             pdf.cell(available_widths[i], 10, col, 1, 0, 'C', True)
-        pdf.ln()  # Move to next line
+        pdf.ln()
 
-        pdf.set_font("Arial", "", 10)  # Set font for table content
-        # Add rows to the table
+        # Add treatment data rows
+        pdf.set_font("Arial", "", 10)
         for item in treatment_plan:
             for i, col in enumerate(available_columns):
                 value = str(item.get(col, ""))
                 if col == 'Cost' and value:
                     try:
-                        value = f"SAR {float(value):.2f}"  # Format cost as currency
+                        value = f"{float(value):.2f}"
                     except ValueError:
                         pass
                 pdf.cell(available_widths[i], 8, value, 1, 0, 'L')
-            pdf.ln()  # Move to next line
+            pdf.ln()
 
-    pdf.ln(5)  # Add space
-    pdf.set_font("Arial", "B", 12)  # Set font for cost summary title
-    pdf.cell(0, 10, "Cost Summary", 0, 1, 'L')  # Cost summary section title
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Underline cost summary title
-    pdf.ln(2)  # Add space
+    # Add cost summary section
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Cost Summary", 0, 1, 'L')
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
 
-    pdf.set_font("Arial", "", 10)  # Set font for cost details
+    pdf.set_font("Arial", "", 10)
 
     # Calculate final cost with discount and VAT
     final_cost = total_cost
@@ -109,51 +150,33 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
     if isinstance(vat, (int, float)):
         final_cost += vat
 
-    col1_width = 100  # Set column width for labels
-    col2_width = 40  # Set column width for values
+    # Define column layout for cost table
+    col1_width = 100
+    col2_width = 40
 
-    # Add cost breakdown
-    pdf.cell(col1_width, 8, "Treatment Total:", 1, 0)
-    pdf.cell(col2_width, 8, f"SAR {float(total_cost):.2f}", 1, 1, 'R')
+    # Create cost breakdown table
+    pdf.cell(col1_width, 8, "Total Treatment Cost", 1, 0)
+    pdf.cell(col2_width, 8, f"{float(total_cost):.2f}", 1, 1, 'R')
 
-    pdf.cell(col1_width, 8, "Discount:", 1, 0)
-    pdf.cell(col2_width, 8, f"SAR {float(discount):.2f}", 1, 1, 'R')
+    pdf.cell(col1_width, 8, "Discount", 1, 0)
+    pdf.cell(col2_width, 8, f"{float(discount):.2f}", 1, 1, 'R')
 
-    pdf.cell(col1_width, 8, "VAT (15%):", 1, 0)
-    pdf.cell(col2_width, 8, f"SAR {float(vat):.2f}", 1, 1, 'R')
+    pdf.cell(col1_width, 8, "VAT (15%)", 1, 0)
+    pdf.cell(col2_width, 8, f"{float(vat):.2f}", 1, 1, 'R')
 
-    pdf.set_font("Arial", "B", 10)  # Set bold font for final total
-    pdf.cell(col1_width, 8, "Final Total:", 1, 0)
-    pdf.cell(col2_width, 8, f"SAR {float(final_cost):.2f}", 1, 1, 'R')
+    # Highlight final total with bold text
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(col1_width, 8, "Final Total", 1, 0)
+    pdf.cell(col2_width, 8, f"{float(final_cost):.2f}", 1, 1, 'R')
 
-    # Check if X-ray image exists and add it to the PDF
-    if xray_image_path and os.path.exists(xray_image_path):
-        pdf.ln(5)  # Add space
-        pdf.set_font("Arial", "B", 12)  # Set font for X-ray title
-        pdf.cell(0, 10, "Dental X-Ray", 0, 1, 'L')  # X-ray section title
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Underline X-ray section title
-        pdf.ln(2)  # Add space
-
-        try:
-            current_y = pdf.get_y()
-            if current_y > 200:  # Add new page if needed
-                pdf.add_page()
-                current_y = pdf.get_y()
-
-            pdf.image(xray_image_path, x=50, y=current_y, w=100)  # Add X-ray image
-            pdf.ln(85)  # Add space after image
-        except Exception as e:
-            pdf.set_font("Arial", "", 10)
-            pdf.cell(0, 10, f"Error loading X-ray image: {str(e)}", 0, 1)
-
-    pdf.ln(10)  # Add space
-    pdf.set_font("Arial", "I", 8)  # Set font for footer
+    # Add footer with generation details
+    pdf.ln(10)
+    pdf.set_font("Arial", "I", 8)
     generation_time = datetime.now()
     pdf.cell(0, 5, "Generated by Dental Flow", 0, 1, 'C')
     pdf.cell(0, 5, f"This report was generated on {generation_time.strftime('%B %d, %Y')} at {generation_time.strftime('%H:%M')}.", 0, 1, 'C')
 
-    # Generate filename based on patient name and timestamp
+    # Generate filename and output PDF
     filename = f"{patient_name.replace(' ', '_')}_treatment_plan.pdf"
-
-    pdf.output(filename)  # Output the PDF
-    return filename  # Return the filename
+    pdf.output(filename)
+    return filename

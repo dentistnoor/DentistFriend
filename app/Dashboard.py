@@ -19,6 +19,7 @@ if not firebase_admin._apps:
 
 database = firestore.client()
 
+
 def main():
     st.title("🦷 Dental Flow")
     st.info('NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development', icon='⚠️')
