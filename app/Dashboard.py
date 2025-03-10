@@ -15,7 +15,7 @@ st.set_page_config(
 
 # Initialize Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate("./firebase-config.json")
+    cred = credentials.Certificate("firebase-config.json")
     firebase_admin.initialize_app(cred)
 
 database = firestore.client()
@@ -117,7 +117,7 @@ def show_info():
         )
 
     with col2:
-        st.image("./assets/logo.jpg", caption="Demo Video Coming Soon")
+        st.image("assets/logo.jpg", caption="Demo Video Coming Soon")
 
 
 def show_support():
@@ -137,13 +137,13 @@ def show_team():
     team_col1, team_col2 = st.columns(2)
 
     with team_col1:
-        st.image("./assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
+        st.image("assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
         st.markdown("**Bachelor of Dental Surgery**")
         st.markdown("Al-Ameen Dental College, Vijayapura (1996-2001)")
         st.markdown("📧 Contact: [noordentist@gmail.com](mailto:noordentist@gmail.com)")
 
     with team_col2:
-        st.image("./assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
+        st.image("assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
         st.markdown("**Student Developer, B.E CSE**")
         st.markdown("Dayananda Sagar College of Engineering, Bangaluru (2022-2026)")
         st.markdown("📧 Contact: [hi@areeb.cloud](mailto:hi@areeb.cloud)")
