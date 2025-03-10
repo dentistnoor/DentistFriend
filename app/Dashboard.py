@@ -23,7 +23,7 @@ database = firestore.client()
 
 def main():
     st.title("🦷 Dental Flow")
-    st.info("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
+    st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
 
     # Initialize session state for login tracking
     if "logged_in" not in st.session_state:
