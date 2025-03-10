@@ -151,7 +151,7 @@ def show_treatments(database, doctor_email, doctor_settings):
 def show_chart():
     """Display dental chart configuration options including the standard teeth notation system."""
     st.header("Dental Chart Configuration")
-    st.info("⚠️ NOTE: Health conditions cannot be modified at this time (under development)")
+    st.info("NOTE: Health conditions cannot be modified at this time (under development)", icon="⚠️")
 
     # Information about the dental notation system
     with st.expander("Dental Notation System", expanded=True):
@@ -196,7 +196,7 @@ def show_chart():
 
     # Future enhancement section
     st.subheader("Dental Chart Customization")
-    st.info("⚠️ NOTE: Additional customization options are under development")
+    st.info("NOTE: Additional customization options are under development", icon="⏳")
 
 
 main()

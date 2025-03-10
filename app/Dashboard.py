@@ -1,3 +1,4 @@
+import hashlib
 import datetime
 import streamlit as st
 import firebase_admin
@@ -22,7 +23,7 @@ database = firestore.client()
 
 def main():
     st.title("🦷 Dental Flow")
-    st.info('NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development', icon='⚠️')
+    st.info("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
 
     # Initialize session state for login tracking
     if "logged_in" not in st.session_state:
@@ -186,7 +187,8 @@ def sign_up():
             database.collection("doctors").document(email).set({
                 "name": name,
                 "email": email,
-                "uid": user.uid
+                "uid": user.uid,
+                "password_hash": hashlib.sha256(password.encode()).hexdigest()
             })
 
             st.success("Account created successfully! You can now sign in.")
@@ -205,37 +207,56 @@ def sign_in():
 
     with col1:
         if st.button("Log In", icon="🔓", use_container_width=True):
-            try:
-                user = auth.get_user_by_email(email)
-                doctor_name = database.collection("doctors").document(email).get().to_dict()["name"]
+            if not email or not password:
+                st.error("Please enter both email and password.")
+            else:
+                try:
+                    # Check if user exists in Firestore
+                    doctor_doc = database.collection("doctors").document(email).get()
+                    if doctor_doc.exists:
+                        doctor_data = doctor_doc.to_dict()
+                        stored_hash = doctor_data.get("password_hash", "")
 
-                st.success(f"Welcome, Dr. {doctor_name}!")
-                st.session_state["logged_in"] = True
-                st.session_state["doctor_name"] = doctor_name
-                st.session_state["doctor_email"] = email
+                        # Check if entered password matches stored hash
+                        entered_hash = hashlib.sha256(password.encode()).hexdigest()
+                        if entered_hash == stored_hash:
+                            doctor_name = doctor_data.get("name", "")
 
-                st.rerun()
-            except firebase_admin.auth.UserNotFoundError:
-                st.error("Invalid email or password.")
-            except Exception as e:
-                st.error(f"Error: {e}")
+                            st.success(f"Welcome, Dr. {doctor_name}!")
+                            st.session_state["logged_in"] = True
+                            st.session_state["doctor_name"] = doctor_name
+                            st.session_state["doctor_email"] = email
+
+                            st.rerun()
+                        else:
+                            st.error("Invalid email or password.")
+                    else:
+                        st.error("User not found. Please check your email or create an account.")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
     with col2:
         if st.button("Reset Password", icon="🔄", use_container_width=True):
             reset_password()
 
 
-# TODO: https://firebase.google.com/docs/auth/admin/email-action-links
-def reset_password():  # Not working
+def reset_password():
     email = st.text_input("Enter your email")
     if st.button("Send Reset Email", icon="🔄", use_container_width=True):
-        try:
-            auth.generate_password_reset_link(email)  # Send password reset email
-            st.success("Password reset email sent. Check your inbox.")
-        except firebase_admin.auth.UserNotFoundError:
-            st.error("Email not found.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+        if not email:
+            st.error("Please enter your email address.")
+        else:
+            try:
+                # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
+                action_code_settings = auth.ActionCodeSettings(
+                    url="http://127.0.0.1:8501",
+                )
+                auth.generate_password_reset_link(email, action_code_settings)
+                st.success("Password reset email sent. Check your inbox.")
+            except firebase_admin.auth.UserNotFoundError:
+                st.error("Email not found.")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 
 def delete_account():

@@ -10,11 +10,11 @@ def format_date(date_str):
         date_obj = date_str
     else:
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         except (ValueError, TypeError):
             return date_str  # Return original if parsing fails
 
-    return date_obj.strftime('%B %d, %Y')
+    return date_obj.strftime("%B %d, %Y")
 
 
 def show_footer():
@@ -22,7 +22,7 @@ def show_footer():
     st.divider()
     st.markdown(
         """
-        <footer style='text-align: center'>
+        <footer style="text-align: center">
             🔓 FOSS (Free and Open Source Software)
             <br>
             <a href="https://github.com/dent-noor/DentalFlow">GitHub</a> • 
@@ -36,21 +36,21 @@ def show_footer():
 
 def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, total_cost=0, xray_image_path=None):
     """Generate a PDF document with treatment plan details and patient information"""
-    pdf = FPDF(orientation='P', unit='mm', format='A4')  # Initialize PDF
+    pdf = FPDF(orientation="P", unit="mm", format="A4")  # Initialize PDF
     pdf.add_page()  # Add a new page to the PDF
 
     # Set up document title and date
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, 'C')
+    pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, "C")
 
     pdf.set_font("Arial", "", 10)
     current_date = datetime.now().strftime("%B %d, %Y")
-    pdf.cell(0, 6, f"Date: {current_date}", 0, 1, 'R')
+    pdf.cell(0, 6, f"Date: {current_date}", 0, 1, "R")
 
     # Add patient information section
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Patient Information", 0, 1, 'L')
+    pdf.cell(0, 10, "Patient Information", 0, 1, "L")
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
@@ -64,7 +64,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
     if xray_image_path and os.path.exists(xray_image_path):
         pdf.ln(5)
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "Dental X-Ray", 0, 1, 'L')
+        pdf.cell(0, 10, "Dental X-Ray", 0, 1, "L")
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(2)
 
@@ -84,7 +84,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
     # Add treatment plan details section
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Treatment Plan Details", 0, 1, 'L')
+    pdf.cell(0, 10, "Treatment Plan Details", 0, 1, "L")
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
@@ -98,7 +98,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
         pdf.set_fill_color(230, 230, 230)
 
         # Define table structure and layout
-        columns = ['Tooth', 'Procedure', 'Status', 'Start Date', 'End Date', 'Cost']
+        columns = ["Tooth", "Procedure", "Status", "Start Date", "End Date", "Cost"]
         col_widths = [20, 50, 25, 35, 35, 25]
 
         available_columns = []
@@ -106,7 +106,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
 
         # Filter available columns based on treatment plan
         for i, col in enumerate(columns):
-            if col in treatment_plan[0] or col == 'Tooth' or col == 'Procedure' or col == 'Cost':
+            if col in treatment_plan[0] or col == "Tooth" or col == "Procedure" or col == "Cost":
                 available_columns.append(col)
                 available_widths.append(col_widths[i])
 
@@ -118,7 +118,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
 
         # Create table header row
         for i, col in enumerate(available_columns):
-            pdf.cell(available_widths[i], 10, col, 1, 0, 'C', True)
+            pdf.cell(available_widths[i], 10, col, 1, 0, "C", True)
         pdf.ln()
 
         # Add treatment data rows
@@ -126,18 +126,18 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
         for item in treatment_plan:
             for i, col in enumerate(available_columns):
                 value = str(item.get(col, ""))
-                if col == 'Cost' and value:
+                if col == "Cost" and value:
                     try:
                         value = f"{float(value):.2f}"
                     except ValueError:
                         pass
-                pdf.cell(available_widths[i], 8, value, 1, 0, 'L')
+                pdf.cell(available_widths[i], 8, value, 1, 0, "L")
             pdf.ln()
 
     # Add cost summary section
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Cost Summary", 0, 1, 'L')
+    pdf.cell(0, 10, "Cost Summary", 0, 1, "L")
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
@@ -156,25 +156,25 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
 
     # Create cost breakdown table
     pdf.cell(col1_width, 8, "Total Treatment Cost", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(total_cost):.2f}", 1, 1, 'R')
+    pdf.cell(col2_width, 8, f"{float(total_cost):.2f}", 1, 1, "R")
 
     pdf.cell(col1_width, 8, "Discount", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(discount):.2f}", 1, 1, 'R')
+    pdf.cell(col2_width, 8, f"{float(discount):.2f}", 1, 1, "R")
 
     pdf.cell(col1_width, 8, "VAT (15%)", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(vat):.2f}", 1, 1, 'R')
+    pdf.cell(col2_width, 8, f"{float(vat):.2f}", 1, 1, "R")
 
     # Highlight final total with bold text
     pdf.set_font("Arial", "B", 10)
     pdf.cell(col1_width, 8, "Final Total", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(final_cost):.2f}", 1, 1, 'R')
+    pdf.cell(col2_width, 8, f"{float(final_cost):.2f}", 1, 1, "R")
 
     # Add footer with generation details
     pdf.ln(10)
     pdf.set_font("Arial", "I", 8)
     generation_time = datetime.now()
-    pdf.cell(0, 5, "Generated by Dental Flow", 0, 1, 'C')
-    pdf.cell(0, 5, f"This report was generated on {generation_time.strftime('%B %d, %Y')} at {generation_time.strftime('%H:%M')}.", 0, 1, 'C')
+    pdf.cell(0, 5, "Generated by Dental Flow", 0, 1, "C")
+    pdf.cell(0, 5, f"This report was generated on {generation_time.strftime('%B %d, %Y')} at {generation_time.strftime('%H:%M')}.", 0, 1, "C")
 
     # Generate filename and output PDF
     filename = f"{patient_name.replace(' ', '_')}_treatment_plan.pdf"

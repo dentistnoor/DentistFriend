@@ -48,7 +48,7 @@ def main():
     st.title("Dental Supply Tracker")
 
     # Authentication check
-    if st.session_state.get('doctor_email') is None:
+    if st.session_state.get("doctor_email") is None:
         st.error("Doctor Authentication Required: Please log in to access the inventory system")
         return
 
