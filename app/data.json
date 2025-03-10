@@ -13,38 +13,24 @@
   ],
   "health_conditions": [
     "Healthy",
+    "Abrasion",
+    "Anodontia",
+    "Attrition",
     "Cavity",
+    "Crowded",
     "Decayed",
+    "Discolored",
+    "Erosion",
     "Extraction",
     "Filled",
     "Fractured",
+    "Gingivitis",
+    "Hyperdontia",
     "Impacted",
     "Implant",
+    "Loose",
     "Missing",
+    "Periodontitis",
     "Root Canal"
-  ],
-  "treatment_procedures": [
-    "Cleaning",
-    "Bridge",
-    "Crown",
-    "Denture",
-    "Extraction",
-    "Filling",
-    "Implant",
-    "Root Canal",
-    "Scaling",
-    "Veneer"
-  ],
-  "price_estimates": {
-    "Cleaning": 200,
-    "Bridge": 3000,
-    "Crown": 2000,
-    "Denture": 1500,
-    "Extraction": 500,
-    "Filling": 300,
-    "Implant": 4000,
-    "Root Canal": 1500,
-    "Scaling": 100,
-    "Veneer": 2500
-  }
+  ]
 }

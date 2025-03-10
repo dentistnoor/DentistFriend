@@ -168,6 +168,8 @@ def show_nav():
         if st.button("⚙️ Settings", use_container_width=True):
             st.switch_page("pages/5_Settings.py")
 
+    st.info("First-time user? Configure your settings to get started")
+
 
 def sign_up():
     st.subheader("Create a New Account")

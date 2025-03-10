@@ -12,7 +12,7 @@ if 'patient_status' not in st.session_state:
 if 'treatment_record' not in st.session_state:
     st.session_state.treatment_record = []
 
-# Load dental procedures and pricing data from config file
+# Load dental chart data from config file (teeth map, teeth rows, health conditions)
 with open('./app/data.json', 'r') as file:
     dental_data = json.load(file)
 
@@ -68,6 +68,25 @@ def modify_treatment(doctor_email, file_id, treatment_record):
         return False
 
 
+def load_settings(doctor_email):
+    """Load doctor settings from Firestore including treatment procedures and prices"""
+    try:
+        doctor_ref = database.collection("doctors").document(doctor_email)
+        settings_doc = doctor_ref.collection("settings").document("config").get()
+
+        # If settings exist, return them
+        if settings_doc.exists:
+            return settings_doc.to_dict()
+        else:
+            # Return default settings if none exist
+            return {
+                "treatment_procedures": ["Cleaning"],
+                "price_estimates": {"Cleaning": 100}
+            }
+    except Exception as e:
+        st.error(f"Failed to load doctor settings: {str(e)}")
+
+
 def main():
     st.title("Dental Treatment Planner")
 
@@ -75,6 +94,14 @@ def main():
     if st.session_state.get('doctor_email') is None:
         st.error("Doctor Authentication Required: Please log in to access patient management")
         return
+
+    # Load doctor-specific settings from Firestore
+    doctor_email = st.session_state.get('doctor_email')
+    doctor_settings = load_settings(doctor_email)
+
+    # Merge doctor's treatment procedures and price estimates with dental_data
+    dental_data['treatment_procedures'] = doctor_settings.get('treatment_procedures', ['Cleaning'])
+    dental_data['price_estimates'] = doctor_settings.get('price_estimates', {'Cleaning': 100})
 
     st.header("Patient Registration")
 
@@ -269,7 +296,7 @@ def main():
                 with column_second:
                     treatment_procedure = st.selectbox("Procedure", dental_data['treatment_procedures'], key="add_procedure")
 
-                # Get cost from price estimates in data.json
+                # Get cost from price estimates in doctor settings
                 price_estimates = dental_data['price_estimates']
                 procedure_price = price_estimates.get(treatment_procedure, 0)
 
