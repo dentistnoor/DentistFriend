@@ -44,7 +44,7 @@ def main():
         # Logout, Reset Password, and Delete Account buttons
         st.divider()
         st.markdown("### Account Settings")
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
             if st.button("Logout", icon="↩️", use_container_width=True):
@@ -56,6 +56,10 @@ def main():
                 reset_password()
 
         with col3:
+            if st.button("Reset Email", icon="📧", use_container_width=True):
+                reset_email()
+
+        with col4:
             if st.button("Delete Account", icon="🗑️", use_container_width=True):
                 delete_account()
 
@@ -241,22 +245,28 @@ def sign_in():
 
 
 def reset_password():
-    email = st.text_input("Enter your email")
-    if st.button("Send Reset Email", icon="🔄", use_container_width=True):
-        if not email:
-            st.error("Please enter your email address.")
-        else:
-            try:
-                # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
-                action_code_settings = auth.ActionCodeSettings(
-                    url="http://127.0.0.1:8501",
-                )
-                auth.generate_password_reset_link(email, action_code_settings)
-                st.success("Password reset email sent. Check your inbox.")
-            except firebase_admin.auth.UserNotFoundError:
-                st.error("Email not found.")
-            except Exception as e:
-                st.error(f"Error: {e}")
+    st.error("This feature is currently development")
+    # email = st.text_input("Enter your email")
+    # if st.button("Send Reset Email", icon="🔄", use_container_width=True):
+    #     if not email:
+    #         st.error("Please enter your email address.")
+    #     else:
+    #         try:
+    #             # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
+    #             action_code_settings = auth.ActionCodeSettings(
+    #                 url="http://127.0.0.1:8501",
+    #             )
+    #             auth.generate_password_reset_link(email, action_code_settings)
+    #             st.success("Password reset email sent. Check your inbox.")
+    #         except firebase_admin.auth.UserNotFoundError:
+    #             st.error("Email not found.")
+    #         except Exception as e:
+    #             st.error(f"Error: {e}")
+
+
+# TODO: Change email address in Firestore and Firebase Authentication
+def reset_email():
+    st.error("This feature is currently development")
 
 
 def delete_account():

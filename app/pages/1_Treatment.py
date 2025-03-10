@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from firebase_admin import firestore
-from utils import format_date, show_footer, generate_pdf
+from utils import format_date, show_footer, generate_pdf, render_chart
 
 # Initialize session state variables to track patient status and treatment records
 if "patient_status" not in st.session_state:
@@ -157,6 +157,11 @@ def main():
             st.session_state.patient_selected = patient_info
             # Load existing treatment plan if available
             st.session_state.treatment_record = patient_info.get("treatment_plan", [])
+
+            # Initialize tooth condition session state variables for existing dental chart
+            dental_chart = patient_info.get("dental_chart", {})
+            for tooth, condition in dental_chart.items():
+                st.session_state[f"tooth_condition_{tooth}"] = condition
         else:
             st.warning("Patient Lookup Failed: No records match this file ID")
             st.session_state.patient_status = False
@@ -177,6 +182,12 @@ def main():
                     # Reset patient-related session state variables
                     st.session_state.patient_status = False
                     st.session_state.treatment_record = []
+
+                    # Clear tooth condition session state variables
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("tooth_condition_"):
+                            del st.session_state[key]
+
                     st.rerun()  # Refresh the app
             with col2:
                 if st.button("✏️ Edit Patient Record", use_container_width=True, key="edit_patient_btn"):
@@ -221,69 +232,25 @@ def main():
                         st.rerun()
 
         # Dental chart assessment tool - visual representation of patient's dental health
-        with st.container(border=True):
-            st.header("Dental Chart Assessment")
+        dental_chart = patient_info.get("dental_chart", {})
+        updated_chart, chart_changed = render_chart(dental_data, dental_chart)
 
-            # Get existing dental chart or initialize empty dict
-            dental_chart = patient_info.get("dental_chart", {})
-            teeth_map = dental_data["teeth_map"].copy()
-
-            # Merge existing dental chart data with teeth map
-            for tooth in teeth_map:
-                if tooth in dental_chart:
-                    teeth_map[tooth] = dental_chart[tooth]
-
-            teeth_rows = dental_data["teeth_rows"]
-            health_conditions = dental_data["health_conditions"]
-
-            # Interactive dental chart with selectable conditions for each tooth
-            # Creates a visual grid representation of all teeth
-            chart_changed = False
-            for teeth_row in teeth_rows:
-                # Create columns for each tooth in the row (8 teeth per row for standard dental chart)
-                column_array = st.columns(8)
-                for i, tooth_number in enumerate(teeth_row):
-                    with column_array[i]:
-                        # Set default selection to current condition or "Healthy"
-                        default_index = 0
-                        if tooth_number in dental_chart:
-                            try:
-                                default_index = health_conditions.index(dental_chart[tooth_number])
-                            except ValueError:
-                                default_index = 0
-
-                        # Dropdown selector for tooth condition
-                        selected_condition = st.selectbox(
-                            f"Tooth {tooth_number}",
-                            health_conditions,
-                            index=default_index,
-                            key=f"tooth_{tooth_number}"
-                        )
-
-                        # Track changes to dental chart
-                        if tooth_number not in dental_chart or dental_chart[tooth_number] != selected_condition:
-                            dental_chart[tooth_number] = selected_condition
-                            chart_changed = True
-
-                        # Auto-select unhealthy teeth for potential treatment
-                        if selected_condition != "Healthy":
-                            st.session_state.tooth_selected = tooth_number
-
-            # Save dental chart changes to database
-            if chart_changed:
-                try:
-                    doctor_reference = database.collection("doctors").document(st.session_state.doctor_email)
-                    patient_document = doctor_reference.collection("patients").document(file_id)
-                    patient_document.update({"dental_chart": dental_chart})
-                    st.session_state.patient_selected["dental_chart"] = dental_chart
-                    st.success("Dental chart updated successfully!")
-                except Exception as e:
-                    st.error(f"Chart Update Error: {str(e)}")
+        # Save dental chart changes to database if changes were made
+        if chart_changed:
+            try:
+                doctor_reference = database.collection("doctors").document(st.session_state.doctor_email)
+                patient_document = doctor_reference.collection("patients").document(file_id)
+                patient_document.update({"dental_chart": updated_chart})
+                st.session_state.patient_selected["dental_chart"] = updated_chart
+                st.success("Dental chart updated successfully!")
+            except Exception as e:
+                st.error(f"Chart Update Error: {str(e)}")
 
         # Treatment plan creation section - allows adding treatments for specific teeth
         with st.container(border=True):
             st.header("Treatment Plan")
             # Default to previously selected tooth or first tooth in map
+            teeth_map = dental_data["teeth_map"].copy()
             tooth_selected = st.session_state.get("tooth_selected", list(teeth_map.keys())[0])
 
             # Form to add new treatment procedures
