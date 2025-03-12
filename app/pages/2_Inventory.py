@@ -59,7 +59,7 @@ def main():
         inventory_data = add_items(inventory_data)
 
     with st.container(border=True):
-        inventory_data = remove_items(inventory_data)
+        inventory_data = edit_remove_items(inventory_data)
 
     with st.container(border=True):
         st.header("Current Inventory")
@@ -101,23 +101,79 @@ def add_items(inventory_data):
     return inventory_data
 
 
-def remove_items(inventory_data):
-    """Remove items from inventory or reduce quantity"""
-    st.header("Remove Inventory")
-    removal_item = st.text_input("Item to Remove", placeholder="Enter item name to remove").strip().lower()
+def edit_remove_items(inventory_data):
+    """Edit or remove items from inventory"""
+    st.header("Edit/Remove Inventory")
 
-    # Show current quantity if item exists
-    if removal_item in inventory_data:
-        st.write(f"Current inventory: {inventory_data[removal_item]['quantity']} units")
-        quantity_remove = st.number_input("Removal Quantity (0 to delete completely)", min_value=0, step=1)
+    # Create tabs for separating edit and remove functionality
+    edit_tab, remove_tab = st.tabs(["Edit Item", "Remove Item"])
 
-        if st.button("➖ Remove Item"):
-            modify_stock(removal_item, quantity_remove)
-            return fetch_stock()
-    elif st.button("🔍 Find Item"):
-        st.error(f"Item Not Found: '{removal_item}' does not exist in inventory")
+    with edit_tab:
+        edit_item = st.text_input("Item to Edit", key="edit_item_input", placeholder="Enter item name to edit").strip().lower()
+        find_edit_button = st.button("🔍 Find Item", key="find_edit_item")
 
-    return inventory_data
+        # Item found in inventory - display edit options
+        if edit_item in inventory_data:
+            item_details = inventory_data[edit_item]
+            st.success(f"Item Found: '{edit_item}'")
+
+            # Display current item information
+            st.write(f"Current quantity: {item_details['quantity']} units")
+            st.write(f"Current expiry date: {format_date(item_details['expiry_date'])}")
+
+            # Create two-column layout for edit inputs
+            edit_col1, edit_col2 = st.columns(2)
+            with edit_col1:
+                new_quantity = st.number_input(
+                    "New Quantity", 
+                    min_value=1, 
+                    value=item_details['quantity'],
+                    step=1,
+                    key="edit_quantity"
+                )
+
+            with edit_col2:
+                # Convert string date to datetime object for the date input widget
+                current_expiry = datetime.strptime(item_details['expiry_date'], "%Y-%m-%d").date()
+                new_expiry = st.date_input(
+                    "New Expiry Date",
+                    value=current_expiry,
+                    min_value=datetime.today().date(),
+                    key="edit_expiry"
+                )
+
+            # Save button and update logic
+            if st.button("✅ Save Changes", key="save_edit"):
+                expiry_string = new_expiry.strftime("%Y-%m-%d")
+                store_stock(edit_item, new_quantity, expiry_string)
+                st.success(f"Item Updated: '{edit_item}' has been updated successfully")
+                return fetch_stock()  # Refresh inventory data
+
+        # Item not found in inventory
+        elif edit_item and find_edit_button:
+            st.error(f"Item Not Found: '{edit_item}' does not exist in inventory")
+
+    with remove_tab:
+        removal_item = st.text_input("Item to Remove", key="remove_item_input", placeholder="Enter item name to remove").strip().lower()
+        find_remove_button = st.button("🔍 Find Item", key="find_remove_item")
+        # Item found - display removal options
+        if removal_item in inventory_data:
+            st.write(f"Current inventory: {inventory_data[removal_item]['quantity']} units")
+            quantity_remove = st.number_input(
+                "Removal Quantity (0 to delete completely)",
+                min_value=0,
+                step=1,
+                key="remove_quantity"
+            )
+            # Process removal when button is clicked
+            if st.button("➖ Remove Item", key="remove_button"):
+                modify_stock(removal_item, quantity_remove)
+                return fetch_stock()  # Refresh inventory data
+        # Item not found in inventory
+        elif removal_item and find_remove_button:
+            st.error(f"Item Not Found: '{removal_item}' does not exist in inventory")
+
+    return inventory_data  # Return original data if no changes made
 
 
 def show_inventory(inventory_data):
