@@ -4,7 +4,7 @@ from firebase_admin import firestore
 from utils import show_footer
 
 # Load default data from JSON file
-with open("./app/data.json", "r") as file:
+with open("app/data.json", "r") as file:
     default_data = json.load(file)
 
 

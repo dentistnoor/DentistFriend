@@ -13,7 +13,7 @@ if "treatment_record" not in st.session_state:
     st.session_state.treatment_record = []
 
 # Load dental chart data from config file (teeth map, teeth rows, health conditions)
-with open("./app/data.json", "r") as file:
+with open("app/data.json", "r") as file:
     dental_data = json.load(file)
 
 # Initialize Firestore database client
@@ -305,32 +305,10 @@ def main():
 
                 # Form for managing treatment procedures - status, duration, etc.
                 with st.form("treatment_management"):
-                    today = datetime.today()
-
-                    # Determine default start date from existing data or use today
-                    default_start_date = today
-                    if not df.empty and "Start Date" in df.columns:
-                        try:
-                            first_date = df["Start Date"].iloc[0]
-                            if isinstance(first_date, str):
-                                # Convert string date to datetime object
-                                default_start_date = datetime.strptime(first_date, "%Y-%m-%d")
-                            else:
-                                default_start_date = today
-                        except (ValueError, TypeError):
-                            # Fallback to today's date on parsing errors
-                            default_start_date = today
-
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        st.write("**Schedule Settings**")
-                        start_date = st.date_input("Treatment Start Date", value=default_start_date, 
-                                                  key="treatment_start_date")
-
                     st.write("**Treatment Procedures**")
 
                     # Create header row for the treatment management table
-                    col_headers = st.columns([2, 3, 2, 2, 1])
+                    col_headers = st.columns([2, 3, 2, 3, 2, 1])
                     with col_headers[0]:
                         st.write("**Tooth**")
                     with col_headers[1]:
@@ -338,8 +316,10 @@ def main():
                     with col_headers[2]:
                         st.write("**Status**")
                     with col_headers[3]:
-                        st.write("**Duration (days)**")
+                        st.write("**Start Date**")
                     with col_headers[4]:
+                        st.write("**Duration (days)**")
+                    with col_headers[5]:
                         st.write("**Action**")
 
                     procedures_to_delete = []
@@ -350,7 +330,7 @@ def main():
                         procedure = row["Procedure"]
                         key_id = f"{tooth}_{procedure}_{i}"
 
-                        cols = st.columns([2, 3, 2, 2, 1])
+                        cols = st.columns([2, 3, 2, 3, 2, 1])
 
                         with cols[0]:
                             st.write(f"Tooth {tooth}")
@@ -377,6 +357,23 @@ def main():
                             )
 
                         with cols[3]:
+                            # Individual start date for each procedure
+                            # Parse the existing date or use today's date as default
+                            default_date = datetime.today()
+                            if "Start Date" in row and row["Start Date"]:
+                                try:
+                                    default_date = datetime.strptime(row["Start Date"], "%Y-%m-%d")
+                                except (ValueError, TypeError):
+                                    pass  # Use today's date if parsing fails
+
+                            procedure_start_date = st.date_input(
+                                "Start Date",
+                                value=default_date,
+                                key=f"start_date_{key_id}",
+                                label_visibility="collapsed"
+                            )
+
+                        with cols[4]:
                             # Duration control for treatment length
                             new_duration = st.number_input(
                                 "Duration",
@@ -387,15 +384,15 @@ def main():
                                 label_visibility="collapsed"
                             )
 
-                        with cols[4]:
-                            # Action selector - keep (✔️) or delete (❌)
+                        with cols[5]:
+                            # Action selector - keep (✓) or delete (✗) the procedure
                             delete_item = st.selectbox(
                                 "Action",
-                                ["✔️", "❌"],
+                                ["✓", "✗"],
                                 key=f"delete_{key_id}",
                                 label_visibility="collapsed"
                             )
-                            if delete_item == "❌":
+                            if delete_item == "✗":
                                 procedures_to_delete.append(i)
 
                     submit_management = st.form_submit_button("📋 Update Treatment Management", use_container_width=True)
@@ -403,7 +400,6 @@ def main():
                     # Process form submission - update all treatments
                     if submit_management:
                         updated_treatments = []
-                        start_date_str = start_date.strftime("%Y-%m-%d")
 
                         # Create updated treatment list excluding deleted procedures
                         for i, item in enumerate(st.session_state.treatment_record):
@@ -420,6 +416,10 @@ def main():
                             # Update price if procedure changed
                             price_estimates = dental_data["price_estimates"]
                             procedure_price = price_estimates.get(new_procedure, item["Cost"]) if new_procedure != procedure else item["Cost"]
+
+                            # Get individual start date for this procedure
+                            start_date = st.session_state[f"start_date_{key_id}"]
+                            start_date_str = start_date.strftime("%Y-%m-%d")
 
                             # Create updated procedure record
                             updated_procedure = {
