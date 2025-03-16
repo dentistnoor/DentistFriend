@@ -22,13 +22,16 @@ def main():
     doctor_settings = load_settings(database, doctor_email)
 
     # Create tabs for different setting categories
-    tab1, tab2 = st.tabs(["Treatment Procedures", "Dental Chart"])
+    tab1, tab2, tab3 = st.tabs(["Treatment Procedures", "Dental Chart", "Currency Settings"])
 
     with tab1:
         show_treatments(database, doctor_email, doctor_settings)
 
     with tab2:
         show_chart()
+
+    with tab3:
+        show_currency(database, doctor_email, doctor_settings)
 
 
 def load_settings(database, doctor_email):
@@ -44,7 +47,8 @@ def load_settings(database, doctor_email):
             # Create default settings if none exist
             settings = {
                 "treatment_procedures": ["Cleaning"],
-                "price_estimates": {"Cleaning": 100}
+                "price_estimates": {"Cleaning": 100},
+                "currency": "SAR"
             }
             save_settings(database, doctor_email, settings)
 
@@ -66,6 +70,9 @@ def show_treatments(database, doctor_email, doctor_settings):
     """Display and manage treatment procedures and price settings."""
     st.header("Treatment Procedures Configuration")
     st.info("Manage your treatment procedures and their associated prices")
+
+    # Get current currency symbol for display
+    currency_symbol = get_currency_symbol(doctor_settings.get("currency", "SAR"))
 
     # Extract current procedures and prices from settings
     procedures = doctor_settings.get("treatment_procedures", [])
@@ -121,7 +128,7 @@ def show_treatments(database, doctor_email, doctor_settings):
                     st.error("This procedure already exists in your list")
 
     # Price estimates section
-    st.subheader("Price Estimates (in your local currency)")
+    st.subheader(f"Price Estimates (in {currency_symbol})")
     with st.container(border=True):
         if procedures:
             # Display price input fields for each procedure
@@ -198,6 +205,47 @@ def show_chart():
     # Future enhancement section
     st.subheader("Dental Chart Customization")
     st.error("NOTE: Additional customization options are under development", icon="⏳")
+
+
+def show_currency(database, doctor_email, doctor_settings):
+    """Display and manage currency settings."""
+    st.header("Currency Settings")
+    st.info("Set your preferred currency for price estimates")
+
+    # Get current currency from settings
+    current_currency = doctor_settings.get("currency", "SAR")
+
+    # Currency options
+    currency_options = {
+        "SAR": "Saudi Riyal (SAR)",
+        "INR": "Indian Rupee (₹)"
+    }
+
+    # Display currency selection
+    with st.container(border=True):
+        selected_currency = st.selectbox(
+            "Select Currency",
+            options=list(currency_options.keys()),
+            format_func=lambda x: currency_options[x],
+            index=list(currency_options.keys()).index(current_currency) if current_currency in currency_options else 0
+        )
+
+        # Save button for currency changes
+        if st.button("✔️ Save Currency Preference", use_container_width=True):
+            if selected_currency != current_currency:
+                doctor_settings["currency"] = selected_currency
+                save_settings(database, doctor_email, doctor_settings)
+                st.success(f"Currency updated to {currency_options[selected_currency]}")
+                st.rerun()
+
+
+def get_currency_symbol(currency_code):
+    """Return the appropriate currency symbol based on currency code."""
+    currency_symbols = {
+        "SAR": "SAR",
+        "INR": "₹"
+    }
+    return currency_symbols.get(currency_code, currency_code)
 
 
 main()
