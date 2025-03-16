@@ -7,7 +7,7 @@ from utils import show_footer
 
 # Configure Streamlit page settings
 st.set_page_config(
-    page_title="Dental Flow",
+    page_title="Denthic",
     page_icon="🦷",
     layout="wide",
     # initial_sidebar_state="collapsed"
@@ -22,7 +22,7 @@ database = firestore.client()
 
 
 def main():
-    st.title("🦷 Dental Flow")
+    st.title("🦷 Denthic")
     st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
 
     # Initialize session state for login tracking
@@ -97,9 +97,9 @@ def show_info():
     with col1:
         st.markdown(
             """
-            ## What is Dental Flow?
+            ## What is Denthic?
 
-            **Dental Flow** is an advanced dental practice management solution designed specifically 
+            **Denthic** is an advanced dental practice management solution designed specifically 
             for dental professionals in rural or remote areas where access to such systems is limited 
             or prohibitively expensive. This comprehensive platform streamlines various aspects of 
             dental practice management, making it easier for dentists to manage patient treatment plans, 
@@ -121,12 +121,12 @@ def show_info():
 
 
 def show_support():
-    st.markdown("## ❤️ Support Dental Flow")
+    st.markdown("## ❤️ Support Denthic")
     st.markdown("""
-    Thank you for considering supporting Dental Flow! Your donations help us improve our services and develop new features.
+    Thank you for considering supporting Denthic! Your donations help us improve our services and develop new features.
 
     ### Donation Options:
-    - **UPI**: dentalflow@upi
+    - **UPI**: denthic@upi
 
     Every contribution helps us make dental practice management better for everyone. Thank you for your support!
     """)
@@ -138,7 +138,7 @@ def show_team():
 
     with team_col1:
         st.image("assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
-        st.markdown("**Bachelor of Dental Surgery**")
+        st.markdown("**Dentist, BDS**")
         st.markdown("Al-Ameen Dental College, Vijayapura (1996-2001)")
         st.markdown("📧 Contact: [noordentist@gmail.com](mailto:noordentist@gmail.com)")
 
@@ -266,27 +266,62 @@ def reset_password():
 
 # TODO: Change email address in Firestore and Firebase Authentication
 def reset_email():
-    st.error("This feature is currently development")
+    st.error("This feature is currently in development")
+    # Get the currently stored email from session state
+    # current_email = st.session_state.get("doctor_email")
+    # new_email = st.text_input("New Email Address")
+
+    # if st.button("Update Email", icon="📧", use_container_width=True):
+    #     if not new_email:
+    #         st.error("Please enter a new email address.")
+    #         return
+
+    #     try:
+    #         # Fetch the user details using the current email
+    #         user = auth.get_user_by_email(current_email)
+    #         auth.update_user(user.uid, email=new_email)  # Update email in authentication system
+
+    #         # Retrieve doctor data from Firestore
+    #         doctor_doc = database.collection("doctors").document(current_email).get()
+    #         doctor_data = doctor_doc.to_dict()
+
+    #         # Update email field in the retrieved data
+    #         doctor_data["email"] = new_email
+    #         database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
+
+    #         # Delete the old document associated with the previous email
+    #         database.collection("doctors").document(current_email).delete()
+
+    #         # Update session state with the new email
+    #         st.session_state["doctor_email"] = new_email
+    #         st.success("Email updated successfully!")
+    #         st.rerun()  # Refresh the app to reflect changes
+
+    #     except firebase_admin.auth.EmailAlreadyExistsError:
+    #         st.error("Email already in use.")  # Handle case where new email is already taken
+    #     except Exception as e:
+    #         st.error(f"Error: {e}")  # Handle any other unexpected errors
 
 
 def delete_account():
-    email = st.session_state.get("doctor_email")
-    if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
-        try:
-            # Delete document from Firestore
-            database.collection("doctors").document(email).delete()
+    st.error("This feature is currently in development")
+    # email = st.session_state.get("doctor_email")
+    # if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
+    #     try:
+    #         # Delete document from Firestore
+    #         database.collection("doctors").document(email).delete()
 
-            # Delete user from Firebase Authentication
-            user = auth.get_user_by_email(email)
-            auth.delete_user(user.uid)
+    #         # Delete user from Firebase Authentication
+    #         user = auth.get_user_by_email(email)
+    #         auth.delete_user(user.uid)
 
-            st.success("Account deleted successfully!")
-            st.session_state.clear()  # Clear session state
-            st.rerun()  # Refresh the app
-        except firebase_admin.auth.UserNotFoundError:
-            st.error("User not found.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+    #         st.success("Account deleted successfully!")
+    #         st.session_state.clear()  # Clear session state
+    #         st.rerun()  # Refresh the app
+    #     except firebase_admin.auth.UserNotFoundError:
+    #         st.error("User not found.")
+    #     except Exception as e:
+    #         st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":
