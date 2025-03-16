@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from firebase_admin import firestore
-from utils import format_date, show_footer, generate_pdf, render_chart
+from utils import format_date, show_footer, generate_pdf, render_chart, get_currency_symbol
 
 # Initialize session state variables to track patient status and treatment records
 if "patient_status" not in st.session_state:
@@ -11,10 +11,6 @@ if "patient_status" not in st.session_state:
 
 if "treatment_record" not in st.session_state:
     st.session_state.treatment_record = []
-
-# Load dental chart data from config file (teeth map, teeth rows, health conditions)
-with open("app/data.json", "r") as file:
-    dental_data = json.load(file)
 
 # Initialize Firestore database client
 database = firestore.client()
@@ -99,6 +95,10 @@ def main():
     doctor_email = st.session_state.get("doctor_email")
     doctor_settings = load_settings(doctor_email)
 
+    # Load dental chart data from config file (teeth map, teeth rows, health conditions)
+    with open("app/data.json", "r") as file:
+        dental_data = json.load(file)
+
     # Merge doctor's treatment procedures and price estimates with dental_data
     dental_data["treatment_procedures"] = doctor_settings.get("treatment_procedures", ["Cleaning"])
     dental_data["price_estimates"] = doctor_settings.get("price_estimates", {"Cleaning": 100})
@@ -110,6 +110,7 @@ def main():
     with column_first:
         patient_fullname = st.text_input("Full Name", placeholder="Enter patient's full name", key="reg_fullname")
         patient_age = st.number_input("Age", min_value=1, max_value=150, step=1, key="reg_age")
+        patient_type = st.selectbox("Patient Type", ["Adult", "Child"], key="reg_patient_type")
     with column_second:
         patient_gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="reg_gender")
         file_id = st.text_input("File ID", placeholder="Enter File ID", key="reg_file_id")
@@ -136,6 +137,7 @@ def main():
                     "age": patient_age,
                     "gender": patient_gender,
                     "file_id": file_id,
+                    "patient_type": patient_type.lower(),
                     "dental_chart": {},
                     "treatment_plan": []
                 }
@@ -202,6 +204,13 @@ def main():
                 with edit_col1:
                     updated_name = st.text_input("Full Name", value=patient_info.get("name", ""), key="edit_name")
                     updated_age = st.number_input("Age", value=patient_info.get("age", 1), min_value=1, max_value=150, step=1, key="edit_age")
+
+                    # Add patient type selector with current value pre-selected
+                    patient_type_options = ["Adult", "Child"]
+                    current_type = patient_info.get("patient_type", "adult").capitalize()
+                    current_type_index = patient_type_options.index(current_type) if current_type in patient_type_options else 0
+                    updated_patient_type = st.selectbox("Patient Type", patient_type_options, index=current_type_index, key="edit_patient_type")
+
                 with edit_col2:
                     gender_options = ["Male", "Female", "Other"]
                     current_gender_index = gender_options.index(patient_info.get("gender", "Male")) if patient_info.get("gender") in gender_options else 0
@@ -216,7 +225,8 @@ def main():
                             updated_info = {
                                 "name": updated_name,
                                 "age": updated_age,
-                                "gender": updated_gender
+                                "gender": updated_gender,
+                                "patient_type": updated_patient_type.lower()
                             }
                             if modify_patient(st.session_state.doctor_email, file_id, updated_info):
                                 patient_info.update(updated_info)
@@ -226,6 +236,7 @@ def main():
                                 st.rerun()
                         else:
                             st.error("Update Error: Name and age cannot be empty")
+
                 with edit_buttons_col2:
                     if st.button("❌ Cancel", use_container_width=True, key="cancel_edit_patient"):
                         st.session_state.edit_patient = False
@@ -249,17 +260,34 @@ def main():
         # Treatment plan creation section - allows adding treatments for specific teeth
         with st.container(border=True):
             st.header("Treatment Plan")
+
+            # Get patient type to determine which teeth map to use
+            patient_type = st.session_state.patient_selected.get("patient_type", "adult").lower()
+
+            # Use appropriate teeth map based on patient type
+            if patient_type == "child" and "child" in dental_data:
+                teeth_map = dental_data["child"]["teeth_map"].copy()
+            else:
+                teeth_map = dental_data["adult"]["teeth_map"].copy()
+
             # Default to previously selected tooth or first tooth in map
-            teeth_map = dental_data["teeth_map"].copy()
             tooth_selected = st.session_state.get("tooth_selected", list(teeth_map.keys())[0])
+            # If the previously selected tooth is not in the current teeth map, use the first tooth
+            if tooth_selected not in teeth_map:
+                tooth_selected = list(teeth_map.keys())[0]
 
             # Form to add new treatment procedures
             with st.form("treatment_form"):
                 column_first, column_second = st.columns(2)
                 with column_first:
                     # Pre-select the tooth that was marked as unhealthy (if any)
-                    tooth_identifier = st.selectbox("Tooth Number", list(teeth_map.keys()), 
-                                                   index=list(teeth_map.keys()).index(tooth_selected), key="add_tooth")
+                    tooth_identifier = st.selectbox(
+                        "Tooth Number",
+                        list(teeth_map.keys()),
+                        index=list(teeth_map.keys()).index(tooth_selected) if tooth_selected in teeth_map else 0,
+                        key="add_tooth"
+                    )
+
                 with column_second:
                     treatment_procedure = st.selectbox("Procedure", dental_data["treatment_procedures"], key="add_procedure")
 
@@ -488,6 +516,7 @@ def main():
 
             # Cost summary display
             st.header("Cost Summary")
+            currency_symbol = get_currency_symbol(doctor_settings.get("currency", "SAR"))
             with st.container(border=True):
                 if st.session_state.treatment_record:
                     cost_df = pd.DataFrame(st.session_state.treatment_record)
@@ -495,15 +524,15 @@ def main():
                     st.write("**Procedure Cost Details:**")
                     procedure_details = cost_df[["Tooth", "Procedure", "Cost"]]
 
-                    # Format cost as string with 2 decimal places
+                    # Format cost as string with currency symbol and 2 decimal places
                     procedure_details = procedure_details.copy()
-                    procedure_details["Cost"] = procedure_details["Cost"].astype(float).apply(lambda x: f"{x:.2f}")
+                    procedure_details["Cost"] = procedure_details["Cost"].astype(float).apply(lambda x: f"{currency_symbol} {x:.2f}")
 
                     st.table(procedure_details)
 
                     # Calculate total price and apply discounts/taxes
                     total_price = sum(item["Cost"] for item in st.session_state.treatment_record)
-                    discount_amount = st.number_input("Discount Amount", min_value=0.0, step=1.0, 
+                    discount_amount = st.number_input("Discount Amount", min_value=0.0, step=1.0,
                                                      format="%.2f", key="discount_amount")
                     tax_apply = st.checkbox("Apply VAT (15%)", key="tax_apply")
 
@@ -514,16 +543,29 @@ def main():
 
                     # Display cost breakdown in table format
                     st.write("**Final Cost Summary:**")
-                    cost_summary = {
-                        "Description": ["Total Treatment Cost", "Discount", "VAT (15%)", "Final Total"],
-                        "Amount": [
-                            f"{total_price:.2f}",
-                            f"-{discount_calculation:.2f}",
-                            f"+{tax_calculation:.2f}",
-                            f"{final_calculation:.2f}"
-                        ]
-                    }
 
+                    # Create dynamic cost summary with only applicable entries
+                    descriptions = ["Total Treatment Cost"]
+                    amounts = [f"{currency_symbol} {total_price:.2f}"]
+
+                    # Only add discount row if discount is applied
+                    if discount_calculation > 0:
+                        descriptions.append("Discount")
+                        amounts.append(f"-{currency_symbol} {discount_calculation:.2f}")
+
+                    # Only add VAT row if VAT is applied
+                    if tax_apply and tax_calculation > 0:
+                        descriptions.append("VAT (15%)")
+                        amounts.append(f"+{currency_symbol} {tax_calculation:.2f}")
+
+                    # Always add final total
+                    descriptions.append("Final Total")
+                    amounts.append(f"{currency_symbol} {final_calculation:.2f}")
+
+                    cost_summary = {
+                        "Description": descriptions,
+                        "Amount": amounts
+                    }
                     summary_df = pd.DataFrame(cost_summary)
                     st.table(summary_df)
                 else:
@@ -540,6 +582,7 @@ def main():
                             st.session_state.get("doctor_name", "Doctor"),
                             patient_info["name"] or "Unknown Patient",
                             st.session_state.treatment_record,
+                            currency_symbol,
                             discount_calculation,
                             tax_calculation,
                             total_price,

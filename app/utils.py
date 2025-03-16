@@ -34,10 +34,16 @@ def show_footer():
     )
 
 
-def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, total_cost=0, xray_image_path=None):
+def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR", discount=0, vat=0, total_cost=0, xray_image_path=None):
     """Generate a PDF document with treatment plan details"""
     pdf = FPDF(orientation="P", unit="mm", format="A4")  # Initialize PDF
     pdf.add_page()  # Add a new page to the PDF
+
+    # This prevents encoding errors with Unicode characters
+    if currency_symbol == "₹":
+        display_currency = "INR"
+    else:
+        display_currency = currency_symbol
 
     # Set up document title and date
     pdf.set_font("Arial", "B", 16)
@@ -128,7 +134,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
                 value = str(item.get(col, ""))
                 if col == "Cost" and value:
                     try:
-                        value = f"{float(value):.2f}"
+                        value = f"{display_currency} {float(value):.2f}"
                     except ValueError:
                         pass
                 pdf.cell(available_widths[i], 8, value, 1, 0, "L")
@@ -156,18 +162,20 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, discount=0, vat=0, t
 
     # Create cost breakdown table
     pdf.cell(col1_width, 8, "Total Treatment Cost", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(total_cost):.2f}", 1, 1, "R")
+    pdf.cell(col2_width, 8, f"{display_currency} {float(total_cost):.2f}", 1, 1, "R")
 
-    pdf.cell(col1_width, 8, "Discount", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(discount):.2f}", 1, 1, "R")
+    if discount > 0:
+        pdf.cell(col1_width, 8, "Discount", 1, 0)
+        pdf.cell(col2_width, 8, f"-{display_currency} {float(discount):.2f}", 1, 1, "R")
 
-    pdf.cell(col1_width, 8, "VAT (15%)", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(vat):.2f}", 1, 1, "R")
+    if vat > 0:
+        pdf.cell(col1_width, 8, "VAT (15%)", 1, 0)
+        pdf.cell(col2_width, 8, f"+{display_currency} {float(vat):.2f}", 1, 1, "R")
 
     # Highlight final total with bold text
     pdf.set_font("Arial", "B", 10)
     pdf.cell(col1_width, 8, "Final Total", 1, 0)
-    pdf.cell(col2_width, 8, f"{float(final_cost):.2f}", 1, 1, "R")
+    pdf.cell(col2_width, 8, f"{display_currency} {float(final_cost):.2f}", 1, 1, "R")
 
     # Add footer with generation details
     pdf.ln(10)
@@ -189,12 +197,21 @@ def update_tooth(tooth_number):
 
 
 def render_chart(dental_data, dental_chart=None):
-    """Render interactive dental chart with colored teeth boxes."""
+    """Render interactive dental chart with colored teeth boxes based on patient type."""
     if dental_chart is None:
         dental_chart = {}
 
-    # Copy teeth_map to work with
-    teeth_map = dental_data["teeth_map"].copy()
+    # Get patient type from session state (default to adult if not specified)
+    patient_type = st.session_state.patient_selected.get("patient_type", "adult").lower()
+
+    # Use appropriate teeth map and rows based on patient type
+    if patient_type == "child" and "child" in dental_data:
+        teeth_map = dental_data["child"]["teeth_map"].copy()
+        teeth_rows = dental_data["child"]["teeth_rows"]
+    else:
+        # Default to adult dental chart
+        teeth_map = dental_data["adult"]["teeth_map"].copy()
+        teeth_rows = dental_data["adult"]["teeth_rows"]
 
     # Merge existing dental chart data with teeth map
     for tooth in teeth_map:
@@ -235,9 +252,9 @@ def render_chart(dental_data, dental_chart=None):
     # Container for the entire dental chart with border
     with st.container(border=True):
         # Process each row of teeth in the dental chart
-        for teeth_row in dental_data["teeth_rows"]:
-            # Create columns for each tooth in the row (8 teeth per row for standard dental chart)
-            cols = st.columns(8)
+        for teeth_row in teeth_rows:
+            # Create appropriate number of columns based on row length
+            cols = st.columns(len(teeth_row))
 
             for i, tooth_number in enumerate(teeth_row):
                 with cols[i]:
@@ -297,3 +314,12 @@ def render_chart(dental_data, dental_chart=None):
                             st.session_state.tooth_selected = tooth_number
 
     return dental_chart, chart_changed
+
+
+def get_currency_symbol(currency_code):
+    """Return the appropriate currency symbol based on currency code."""
+    currency_symbols = {
+        "SAR": "SAR",
+        "INR": "₹"
+    }
+    return currency_symbols.get(currency_code, currency_code)

@@ -1,7 +1,7 @@
 import json
 import streamlit as st
 from firebase_admin import firestore
-from utils import show_footer
+from utils import show_footer, get_currency_symbol
 
 # Load default data from JSON file
 with open("app/data.json", "r") as file:
@@ -237,15 +237,6 @@ def show_currency(database, doctor_email, doctor_settings):
                 save_settings(database, doctor_email, doctor_settings)
                 st.success(f"Currency updated to {currency_options[selected_currency]}")
                 st.rerun()
-
-
-def get_currency_symbol(currency_code):
-    """Return the appropriate currency symbol based on currency code."""
-    currency_symbols = {
-        "SAR": "SAR",
-        "INR": "₹"
-    }
-    return currency_symbols.get(currency_code, currency_code)
 
 
 main()
