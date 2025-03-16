@@ -162,8 +162,8 @@ def show_nav():
             st.switch_page("pages/2_Inventory.py")
 
     with col3:
-        if st.button("💬 Chat", use_container_width=True):
-            st.switch_page("pages/3_Chat.py")
+            if st.button("📅 Schedule", use_container_width=True):
+                st.switch_page("pages/3_Schedule.py")
 
     with col4:
         if st.button("📞 Contact", use_container_width=True):

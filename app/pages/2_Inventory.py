@@ -19,10 +19,15 @@ def fetch_stock():
 
 def store_stock(item_name, item_quantity, expiry_date):
     """Store or update inventory item in Firestore database"""
-    stock_collection.document(item_name).set({
-        "quantity": item_quantity,
-        "expiry_date": expiry_date
-    }, merge=True)
+    # If quantity is 0, remove the item
+    if item_quantity == 0:
+        stock_collection.document(item_name).delete()
+        st.success(f"Item Removed: '{item_name}' has been deleted from inventory (quantity is 0)")
+    else:
+        stock_collection.document(item_name).set({
+            "quantity": item_quantity,
+            "expiry_date": expiry_date
+        }, merge=True)
 
 
 def modify_stock(item_name, quantity_remove):
@@ -59,13 +64,13 @@ def main():
         inventory_data = add_items(inventory_data)
 
     with st.container(border=True):
-        inventory_data = edit_remove_items(inventory_data)
+        inventory_data = edit_inventory(inventory_data)
 
-    with st.container(border=True):
+    with st.expander("Current Inventory", expanded=True):
         st.header("Current Inventory")
         show_inventory(inventory_data)
 
-    with st.container(border=True):
+    with st.expander("Inventory Alerts", expanded=False):
         show_alerts(inventory_data)
 
     with st.container(border=True):
@@ -83,7 +88,7 @@ def add_items(inventory_data):
     with column_second:
         item_quantity = st.number_input("Quantity", min_value=0, step=1)
 
-    expiry_date = st.date_input("Expiry Date", min_value=datetime.today())
+    expiry_date = st.date_input("Expiry Date", min_value=datetime.today().date())
 
     if st.button("➕ Add Item"):
         if item_name:
@@ -101,77 +106,77 @@ def add_items(inventory_data):
     return inventory_data
 
 
-def edit_remove_items(inventory_data):
+def edit_inventory(inventory_data):
     """Edit or remove items from inventory"""
-    st.header("Edit/Remove Inventory")
+    st.header("Edit Inventory")
 
-    # Create tabs for separating edit and remove functionality
-    edit_tab, remove_tab = st.tabs(["Edit Item", "Remove Item"])
+    edit_item = st.text_input("Item to Edit", placeholder="Enter item name to edit").strip().lower()
+    find_edit_button = st.button("🔍 Find Item")
 
-    with edit_tab:
-        edit_item = st.text_input("Item to Edit", key="edit_item_input", placeholder="Enter item name to edit").strip().lower()
-        find_edit_button = st.button("🔍 Find Item", key="find_edit_item")
+    # Item found in inventory - display edit options
+    if edit_item in inventory_data:
+        item_details = inventory_data[edit_item]
+        st.success(f"Item Found: '{edit_item}'")
 
-        # Item found in inventory - display edit options
-        if edit_item in inventory_data:
-            item_details = inventory_data[edit_item]
-            st.success(f"Item Found: '{edit_item}'")
+        # Display current item information
+        st.write(f"Current quantity: {item_details['quantity']} units")
+        st.write(f"Current expiry date: {format_date(item_details['expiry_date'])}")
 
-            # Display current item information
-            st.write(f"Current quantity: {item_details['quantity']} units")
-            st.write(f"Current expiry date: {format_date(item_details['expiry_date'])}")
+        # Create two-column layout for edit inputs
+        edit_col1, edit_col2 = st.columns(2)
+        with edit_col1:
+            new_quantity = st.number_input(
+                "New Quantity",
+                min_value=0,
+                value=item_details['quantity'],
+                step=1
+            )
 
-            # Create two-column layout for edit inputs
-            edit_col1, edit_col2 = st.columns(2)
-            with edit_col1:
-                new_quantity = st.number_input(
-                    "New Quantity", 
-                    min_value=1, 
-                    value=item_details['quantity'],
-                    step=1,
-                    key="edit_quantity"
-                )
-
-            with edit_col2:
-                # Convert string date to datetime object for the date input widget
+        with edit_col2:
+            # Convert string date to datetime object for the date input widget
+            try:
                 current_expiry = datetime.strptime(item_details['expiry_date'], "%Y-%m-%d").date()
+                # Ensure current_expiry is not before today to avoid date validation error
+                today = datetime.today().date()
+                if current_expiry < today:
+                    current_expiry = today
+
                 new_expiry = st.date_input(
                     "New Expiry Date",
                     value=current_expiry,
-                    min_value=datetime.today().date(),
-                    key="edit_expiry"
+                    min_value=today
                 )
+            except Exception as e:
+                # Handle any date parsing errors
+                st.error(f"Date validation error: {e}")
+                new_expiry = datetime.today().date()
 
-            # Save button and update logic
-            if st.button("✅ Save Changes", key="save_edit"):
-                expiry_string = new_expiry.strftime("%Y-%m-%d")
-                store_stock(edit_item, new_quantity, expiry_string)
+        # Create two buttons side by side - Save Changes and Delete Item
+        col1, col2 = st.columns(2)
+        with col1:
+            save_changes = st.button("✅ Save Changes", use_container_width=True)
+
+        with col2:
+            delete_button = st.button("🗑️ Delete Item", use_container_width=True)
+
+        # Process based on which button was clicked
+        if save_changes:
+            expiry_string = new_expiry.strftime("%Y-%m-%d")
+            store_stock(edit_item, new_quantity, expiry_string)
+            if new_quantity == 0:
+                st.success(f"Item Removed: '{edit_item}' has been deleted from inventory (quantity is 0)")
+            else:
                 st.success(f"Item Updated: '{edit_item}' has been updated successfully")
-                return fetch_stock()  # Refresh inventory data
+            return fetch_stock()  # Refresh inventory data
 
-        # Item not found in inventory
-        elif edit_item and find_edit_button:
-            st.error(f"Item Not Found: '{edit_item}' does not exist in inventory")
+        elif delete_button:
+            stock_collection.document(edit_item).delete()
+            st.success(f"Item Removed: '{edit_item}' has been deleted from inventory")
+            return fetch_stock()  # Refresh inventory data
 
-    with remove_tab:
-        removal_item = st.text_input("Item to Remove", key="remove_item_input", placeholder="Enter item name to remove").strip().lower()
-        find_remove_button = st.button("🔍 Find Item", key="find_remove_item")
-        # Item found - display removal options
-        if removal_item in inventory_data:
-            st.write(f"Current inventory: {inventory_data[removal_item]['quantity']} units")
-            quantity_remove = st.number_input(
-                "Removal Quantity (0 to delete completely)",
-                min_value=0,
-                step=1,
-                key="remove_quantity"
-            )
-            # Process removal when button is clicked
-            if st.button("➖ Remove Item", key="remove_button"):
-                modify_stock(removal_item, quantity_remove)
-                return fetch_stock()  # Refresh inventory data
-        # Item not found in inventory
-        elif removal_item and find_remove_button:
-            st.error(f"Item Not Found: '{removal_item}' does not exist in inventory")
+    # Item not found in inventory
+    elif edit_item and find_edit_button:
+        st.error(f"Item Not Found: '{edit_item}' does not exist in inventory")
 
     return inventory_data  # Return original data if no changes made
 
