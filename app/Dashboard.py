@@ -111,8 +111,8 @@ def show_info():
               cost summaries, scheduling, and PDF generation.
             - **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock 
               and expiring items.
-            - **Direct Messaging:** Secure communication for appointment reminders, treatment discussions, 
-              and follow-ups.
+            - **Scheduling System:** Efficiently manage appointments, view available time slots, and send automated 
+            reminders for upcoming visits.
             """
         )
 
