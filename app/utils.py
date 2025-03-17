@@ -25,8 +25,8 @@ def show_footer():
         <footer style="text-align: center">
             🔓 FOSS (Free and Open Source Software)
             <br>
-            <a href="https://github.com/dent-noor/Denthic">GitHub</a> • 
-            <a href="https://github.com/dent-noor/Denthic/blob/main/LICENSE">License</a> • 
+            <a href="https://github.com/dent-noor/Denthic">GitHub</a> •
+            <a href="https://github.com/dent-noor/Denthic/blob/main/LICENSE">License</a> •
             <a href="https://github.com/dent-noor/Denthic/blob/main/README.md">Documentation</a>
         </footer>
         """,
@@ -260,7 +260,7 @@ def render_chart(dental_data, dental_chart=None):
                 with cols[i]:
                     # Get current condition from the session state first (for immediate updates)
                     # or fall back to dental_chart, or default to "Healthy"
-                    current_condition = st.session_state.get(f"tooth_condition_{tooth_number}", 
+                    current_condition = st.session_state.get(f"tooth_condition_{tooth_number}",
                                                           dental_chart.get(tooth_number, "Healthy"))
 
                     # Get the appropriate color for this tooth's condition
