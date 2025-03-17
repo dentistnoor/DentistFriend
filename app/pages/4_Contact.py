@@ -47,8 +47,8 @@ def send_mail(name, email, message):
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
     # Prepare email content
-    subject = "Denthic Feedback Team"
-    body = f"Hello {name},\n\nThank you for reaching out to Denthic! Below is a copy of your message:\n\n{message}"
+    subject = "Dentist Friend Feedback Team"
+    body = f"Hello {name},\n\nThank you for reaching out to Dentist Friend! Below is a copy of your message:\n\n{message}"
     full_message = f"Subject: {subject}\n\n{body}"
 
     try:

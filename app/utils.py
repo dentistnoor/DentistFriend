@@ -25,9 +25,9 @@ def show_footer():
         <footer style="text-align: center">
             🔓 FOSS (Free and Open Source Software)
             <br>
-            <a href="https://github.com/dent-noor/Denthic">GitHub</a> •
-            <a href="https://github.com/dent-noor/Denthic/blob/main/LICENSE">License</a> •
-            <a href="https://github.com/dent-noor/Denthic/blob/main/README.md">Documentation</a>
+            <a href="https://github.com/dent-noor/DentistFriend">GitHub</a> •
+            <a href="https://github.com/dent-noor/DentistFriend/blob/main/LICENSE">License</a> •
+            <a href="https://github.com/dent-noor/DentistFriend/blob/main/README.md">Documentation</a>
         </footer>
         """,
         unsafe_allow_html=True
@@ -104,8 +104,10 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         pdf.set_fill_color(230, 230, 230)
 
         # Define table structure and layout
-        columns = ["Tooth", "Procedure", "Status", "Start Date", "End Date", "Cost"]
-        col_widths = [20, 50, 25, 35, 35, 25]
+        # columns = ["Tooth", "Procedure", "Status", "Start Date", "End Date", "Cost"]
+        columns = ["Tooth", "Procedure", "Status", "Start Date", "Cost"]  # Removed "End Date"
+        # col_widths = [20, 50, 25, 35, 35, 25]
+        col_widths = [20, 50, 25, 35, 25]  # Removed width for "End Date"
 
         available_columns = []
         available_widths = []

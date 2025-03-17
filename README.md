@@ -5,7 +5,7 @@
 
 ## Project Description
 
-Denthic is an advanced dental practice management solution designed specifically for dental professionals in rural or remote areas where access to such systems is limited or prohibitively expensive. This comprehensive platform streamlines various aspects of dental practice management, making it easier for dentists to manage patient treatment plans, inventory, and communication smoothly.
+Dentist Friend is an advanced dental practice management solution designed specifically for dental professionals in rural or remote areas where access to such systems is limited or prohibitively expensive. This comprehensive platform streamlines various aspects of dental practice management, making it easier for dentists to manage patient treatment plans, inventory, and communication smoothly.
 
 ### Key Features
 
@@ -15,7 +15,7 @@ Denthic is an advanced dental practice management solution designed specifically
 
 ### Disclaimer
 
-Please note that **Denthic** is not intended to replace or infringe upon any existing commercial dental management software. Our goal is to offer a **free, open-source alternative** that emphasizes simplicity, accessibility, and affordability, especially for dental professionals in underserved or remote areas. We aim to provide a tool that simplifies the dental practice management experience without competing with or copying established products in the industry.
+Please note that **Dentist Friend** is not intended to replace or infringe upon any existing commercial dental management software. Our goal is to offer a **free, open-source alternative** that emphasizes simplicity, accessibility, and affordability, especially for dental professionals in underserved or remote areas. We aim to provide a tool that simplifies the dental practice management experience without competing with or copying established products in the industry.
 
 ## System Architecture
 

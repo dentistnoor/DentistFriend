@@ -7,7 +7,7 @@ from utils import show_footer
 
 # Configure Streamlit page settings
 st.set_page_config(
-    page_title="Denthic",
+    page_title="Dentist Friend",
     page_icon="🦷",
     layout="wide",
     # initial_sidebar_state="collapsed"
@@ -22,7 +22,7 @@ database = firestore.client()
 
 
 def main():
-    st.title("🦷 Denthic")
+    st.title("🦷 Dentist Friend")
     st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
 
     # Initialize session state for login tracking
@@ -64,12 +64,12 @@ def main():
                 delete_account()
 
         # Support section
-        st.divider()
-        show_support()
+        # st.divider()
+        # show_support()
 
         # Team section
-        st.divider()
-        show_team()
+        # st.divider()
+        # show_team()
     else:
         # Non-logged in user view
         show_info()
@@ -82,23 +82,24 @@ def main():
         with tab2:
             sign_up()
 
-        st.divider()
-        show_support()
+        # Support section
+        # st.divider()
+        # show_support()
 
-        # Team section for non-logged in users
-        st.divider()
-        show_team()
+        # Team section
+        # st.divider()
+        # show_team()
 
 
 def show_info():
-    col1, col2 = st.columns([2, 1])
+    # col1, col2 = st.columns([2, 1])
 
-    with col1:
+    # with col1:
         st.markdown(
             """
-            ## What is Denthic?
+            ## What is Dentist Friend?
 
-            **Denthic** is an advanced dental practice management solution designed specifically
+            **Dentist Friend** is an advanced dental practice management solution designed specifically
             for dental professionals in rural or remote areas where access to such systems is limited
             or prohibitively expensive. This comprehensive platform streamlines various aspects of
             dental practice management, making it easier for dentists to manage patient treatment plans,
@@ -115,17 +116,17 @@ def show_info():
             """
         )
 
-    with col2:
-        st.image("assets/logo.jpg", caption="Demo Video Coming Soon")
+    # with col2:
+    #     st.image("assets/logo.jpg", caption="Demo Video Coming Soon")
 
 
 def show_support():
-    st.markdown("## ❤️ Support Denthic")
+    st.markdown("## ❤️ Support Dentist Friend")
     st.markdown("""
-    Thank you for considering supporting Denthic! Your donations help us improve our services and develop new features.
+    Thank you for considering supporting Dentist Friend! Your donations help us improve our services and develop new features.
 
     ### Donation Options:
-    - **UPI**: denthic@upi
+    - **UPI**: Dentist Friend@upi
 
     Every contribution helps us make dental practice management better for everyone. Thank you for your support!
     """)

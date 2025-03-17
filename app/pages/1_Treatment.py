@@ -309,8 +309,8 @@ def main():
                             # Calculate default dates for treatment timeline
                             today = datetime.today()
                             today_str = today.strftime("%Y-%m-%d")
-                            end_date = today + timedelta(days=7)
-                            end_date_str = end_date.strftime("%Y-%m-%d")
+                            # end_date = today + timedelta(days=7)
+                            # end_date_str = end_date.strftime("%Y-%m-%d")
 
                             # Create new treatment record with default schedule
                             new_procedure = {
@@ -318,9 +318,9 @@ def main():
                                 "Procedure": treatment_procedure,
                                 "Cost": procedure_price,
                                 "Status": "Pending",
-                                "Duration": 7,
+                                # "Duration": 7,
                                 "Start Date": today_str,
-                                "End Date": end_date_str
+                                # "End Date": end_date_str
                             }
                             st.session_state.treatment_record.append(new_procedure)
                             # Update treatment plan in database
@@ -341,7 +341,7 @@ def main():
                         st.write("**Treatment Procedures**")
 
                         # Create header row for the treatment management table
-                        col_headers = st.columns([2, 3, 2, 3, 2, 1])
+                        col_headers = st.columns([2, 3, 2, 3, 1])
                         with col_headers[0]:
                             st.write("**Tooth**")
                         with col_headers[1]:
@@ -350,9 +350,9 @@ def main():
                             st.write("**Status**")
                         with col_headers[3]:
                             st.write("**Start Date**")
+                        # with col_headers[4]:
+                        #     st.write("**Duration (days)**")
                         with col_headers[4]:
-                            st.write("**Duration (days)**")
-                        with col_headers[5]:
                             st.write("**Action**")
 
                         procedures_to_delete = []
@@ -363,7 +363,7 @@ def main():
                             procedure = row["Procedure"]
                             key_id = f"{tooth}_{procedure}_{i}"
 
-                            cols = st.columns([2, 3, 2, 3, 2, 1])
+                            cols = st.columns([2, 3, 2, 3, 1])
 
                             with cols[0]:
                                 st.write(f"Tooth {tooth}")
@@ -406,18 +406,18 @@ def main():
                                     label_visibility="collapsed"
                                 )
 
-                            with cols[4]:
+                            # with cols[4]:
                                 # Duration control for treatment length
-                                new_duration = st.number_input(
-                                    "Duration",
-                                    min_value=1,
-                                    value=int(row.get("Duration", 7)),
-                                    step=1,
-                                    key=f"duration_{key_id}",
-                                    label_visibility="collapsed"
-                                )
+                                # new_duration = st.number_input(
+                                #     "Duration",
+                                #     min_value=1,
+                                #     value=int(row.get("Duration", 7)),
+                                #     step=1,
+                                #     key=f"duration_{key_id}",
+                                #     label_visibility="collapsed"
+                                # )
 
-                            with cols[5]:
+                            with cols[4]:
                                 # Action selector - keep (✓) or delete (✗) the procedure
                                 delete_item = st.selectbox(
                                     "Action",
@@ -460,14 +460,14 @@ def main():
                                     "Procedure": new_procedure,
                                     "Cost": procedure_price,
                                     "Status": st.session_state[f"status_{key_id}"],
-                                    "Duration": st.session_state[f"duration_{key_id}"],
+                                    # "Duration": st.session_state[f"duration_{key_id}"],
                                     "Start Date": start_date_str
                                 }
 
                                 # Calculate end date based on duration
-                                start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d")
-                                end_date = start_date_obj + timedelta(days=updated_procedure["Duration"])
-                                updated_procedure["End Date"] = end_date.strftime("%Y-%m-%d")
+                                # start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d")
+                                # end_date = start_date_obj + timedelta(days=updated_procedure["Duration"])
+                                # updated_procedure["End Date"] = end_date.strftime("%Y-%m-%d")
 
                                 updated_treatments.append(updated_procedure)
 
@@ -485,11 +485,12 @@ def main():
                         # Format dates for better readability
                         if "Start Date" in schedule_df.columns:
                             schedule_df["Start Date"] = schedule_df["Start Date"].apply(format_date)
-                        if "End Date" in schedule_df.columns:
-                            schedule_df["End Date"] = schedule_df["End Date"].apply(format_date)
+                        # if "End Date" in schedule_df.columns:
+                        #     schedule_df["End Date"] = schedule_df["End Date"].apply(format_date)
 
                         # Ensure all required columns exist, fill with defaults if missing
-                        display_cols = ["Tooth", "Procedure", "Status", "Start Date", "End Date"]
+                        # display_cols = ["Tooth", "Procedure", "Status", "Start Date", "End Date"]
+                        display_cols = ["Tooth", "Procedure", "Status", "Start Date"]
                         for col in display_cols:
                             if col not in schedule_df.columns:
                                 schedule_df[col] = "N/A"
