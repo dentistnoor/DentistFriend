@@ -383,7 +383,7 @@ def show_inventory():
         )
 
         # Quick filter options
-        filter_col1, filter_col2 = st.columns(2)
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
         with filter_col1:
             if st.button("🔍 Show Low Stock", use_container_width=True):
                 st.error("Filters are not yet implemented. Please check the Alerts tab for low stock items")
@@ -391,6 +391,17 @@ def show_inventory():
         with filter_col2:
             if st.button("🔍 Show Expiring Soon", use_container_width=True):
                 st.error("Filters are not yet implemented. Please check the Alerts tab for expiring items")
+
+        with filter_col3:
+            if st.button("🧹 Clear Inventory", use_container_width=True):
+                # Get all documents in the stock collection and delete them
+                docs = stock_collection.stream()
+                for doc in docs:
+                    doc.reference.delete()
+
+                st.session_state.inventory_data = fetch_stock()
+                st.success("Inventory Cleared: All items have been removed")
+                st.rerun()
     else:
         st.info("Inventory Status: No items currently in stock")
 
@@ -402,7 +413,7 @@ def add_items():
         item_name = st.text_input("Item Name", placeholder="Enter item name").strip().lower()
 
     with column_second:
-        item_quantity = st.number_input("Quantity", min_value=0, step=1)
+        item_quantity = st.number_input("Quantity", min_value=1, step=1)
 
     expiry_date = st.date_input("Expiry Date", min_value=datetime.today().date())
 
