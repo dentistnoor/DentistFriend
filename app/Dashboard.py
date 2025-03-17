@@ -75,13 +75,12 @@ def main():
         show_info()
         st.divider()
 
-        # Authentication section
-        action = st.selectbox("Choose Action", ["Sign In", "Sign Up"])
-
-        if action == "Sign Up":
-            sign_up()
-        else:
+        tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
+        with tab1:
             sign_in()
+
+        with tab2:
+            sign_up()
 
         st.divider()
         show_support()
@@ -99,19 +98,19 @@ def show_info():
             """
             ## What is Denthic?
 
-            **Denthic** is an advanced dental practice management solution designed specifically 
-            for dental professionals in rural or remote areas where access to such systems is limited 
-            or prohibitively expensive. This comprehensive platform streamlines various aspects of 
-            dental practice management, making it easier for dentists to manage patient treatment plans, 
+            **Denthic** is an advanced dental practice management solution designed specifically
+            for dental professionals in rural or remote areas where access to such systems is limited
+            or prohibitively expensive. This comprehensive platform streamlines various aspects of
+            dental practice management, making it easier for dentists to manage patient treatment plans,
             inventory, and communication smoothly.
 
             ### Key Features
-            - **Patient Management:** Register new patients, search for existing patients, and manage 
-              detailed treatment plans, including dental chart assessments, treatment procedures, 
+            - **Patient Management:** Register new patients, search for existing patients, and manage
+              detailed treatment plans, including dental chart assessments, treatment procedures,
               cost summaries, scheduling, and PDF generation.
-            - **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock 
+            - **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock
               and expiring items.
-            - **Scheduling System:** Efficiently manage appointments, view available time slots, and send automated 
+            - **Scheduling System:** Efficiently manage appointments, view available time slots, and send automated
             reminders for upcoming visits.
             """
         )
@@ -178,9 +177,9 @@ def show_nav():
 
 def sign_up():
     st.subheader("Create a New Account")
-    name = st.text_input("Name")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+    name = st.text_input("Name", key="signup_name")
+    email = st.text_input("Email", key="signup_email")
+    password = st.text_input("Password", type="password", key="signup_password")
 
     if st.button("Sign Up", icon="🔒", use_container_width=True):
         try:
@@ -204,8 +203,8 @@ def sign_up():
 
 def sign_in():
     st.subheader("Sign In to Your Account")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+    email = st.text_input("Email", key="signin_email")
+    password = st.text_input("Password", type="password", key="signin_password")
 
     col1, col2 = st.columns(2)  # Split into two columns
 
