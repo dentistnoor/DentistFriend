@@ -243,7 +243,7 @@ def main():
                         st.rerun()
 
         # Create tabs for better organization of patient data
-        tab1, tab2, tab3 = st.tabs(["Treatment", "Imaging", "Cost Summary"])
+        tab1, tab2, tab3 = st.tabs(["Treatment", "Imaging", "Cost"])
 
         # Tab 1: Treatment (Dental Chart, Treatment Plan, Treatment Management)
         with tab1:

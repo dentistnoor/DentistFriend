@@ -7,8 +7,8 @@ def chat():
     st.markdown("## 🚧 Under Development...")
     st.markdown("The appointment scheduling feature is coming soon")
 
-    st.divider()
-    show_support()
+    # st.divider()
+    # show_support()
 
 chat()
 show_footer()
