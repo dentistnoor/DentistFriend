@@ -19,15 +19,10 @@ def fetch_stock():
 
 def store_stock(item_name, item_quantity, expiry_date):
     """Store or update inventory item in Firestore database"""
-    # If quantity is 0, remove the item
-    if item_quantity == 0:
-        stock_collection.document(item_name).delete()
-        st.success(f"Item Removed: '{item_name}' has been deleted from inventory (quantity is 0)")
-    else:
-        stock_collection.document(item_name).set({
-            "quantity": item_quantity,
-            "expiry_date": expiry_date
-        }, merge=True)
+    stock_collection.document(item_name).set({
+        "quantity": item_quantity,
+        "expiry_date": expiry_date
+    }, merge=True)
 
 
 def modify_stock(item_name, quantity_remove):
@@ -39,14 +34,9 @@ def modify_stock(item_name, quantity_remove):
         item_data = item_document.to_dict()
         current_quantity = item_data["quantity"]
 
-        # Delete item if removing all quantity or more
-        if quantity_remove == 0 or quantity_remove >= current_quantity:
-            item_reference.delete()
-            st.success(f"Item Removed: '{item_name}' has been deleted from inventory")
-        else:
-            # Otherwise reduce the quantity
-            item_reference.update({"quantity": current_quantity - quantity_remove})
-            st.success(f"Quantity Updated: {quantity_remove} units of '{item_name}' removed")
+        # Update quantity if there are enough units
+        item_reference.update({"quantity": current_quantity - quantity_remove})
+        st.success(f"Quantity Updated: {quantity_remove} units of '{item_name}' removed")
 
         # Immediately update the inventory data in session state
         st.session_state.inventory_data = fetch_stock()
@@ -80,8 +70,6 @@ def main():
     # Tab 3: Reports
     with tab_reports:
         display_reports()
-
-    show_footer()
 
 
 def display_inventory():
@@ -324,6 +312,7 @@ def show_inventory():
             today = datetime.today().date()
             expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
             days_until_expiry = (expiry_date - today).days
+            quantity = details["quantity"]
 
             # Determine status
             status = "Normal"
@@ -333,6 +322,8 @@ def show_inventory():
                 status = "🚨 Low Stock"
             if days_until_expiry <= 0:
                 status = "❌ Expired"
+            if quantity == 0:
+                status = "❌ Out of Stock"
 
             st.session_state.inventory_records.append({
                 "Item": item_name.capitalize(),
@@ -346,7 +337,7 @@ def show_inventory():
         inventory_df = pd.DataFrame(st.session_state.inventory_records)
         # Custom sorting function to prioritize alerts
         def status_priority(status):
-            priorities = {"❌ Expired": 0, "🚨 Low Stock": 1, "⚠️ Expiring Soon": 2, "Normal": 3}
+            priorities = {"❌ Expired": 0, "❌ Out of Stock": 1, "🚨 Low Stock": 2, "⚠️ Expiring Soon": 3, "Normal": 4}
             return priorities.get(status, 4)
 
         # Sort by priority (critical items first)
@@ -491,10 +482,7 @@ def edit_inventory():
         if save_changes:
             expiry_string = new_expiry.strftime("%Y-%m-%d")
             store_stock(edit_item, new_quantity, expiry_string)
-            if new_quantity == 0:
-                st.success(f"Item Removed: '{edit_item}' has been deleted from inventory (quantity is 0)")
-            else:
-                st.success(f"Item Updated: '{edit_item}' has been updated successfully")
+            st.success(f"Item Updated: '{edit_item}' has been updated successfully")
 
             # Force refresh of inventory data
             st.session_state.inventory_data = fetch_stock()
@@ -514,3 +502,4 @@ def edit_inventory():
 
 
 main()
+show_footer()
