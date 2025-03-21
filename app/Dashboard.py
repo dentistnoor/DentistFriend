@@ -264,7 +264,6 @@ def reset_password():
     #             st.error(f"Error: {e}")
 
 
-# TODO: Change email address in Firestore and Firebase Authentication
 def reset_email():
     st.error("This feature is currently in development")
     # Get the currently stored email from session state

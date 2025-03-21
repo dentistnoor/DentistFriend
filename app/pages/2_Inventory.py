@@ -47,7 +47,7 @@ def modify_stock(item_name, quantity_remove):
         st.session_state.inventory_data = fetch_stock()
 
 
-def send_expiry_alert(email, expiry_items, days_threshold):
+def send_alert(email, expiry_items, days_threshold):
     """Send email alert for items nearing expiry"""
     # Get email credentials from environment variables
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
@@ -226,7 +226,7 @@ def display_alerts():
             if expiry_items and st.session_state.get("enable_email_alerts", False) and not st.session_state["email_alert_sent"]:
                 alert_email = st.session_state.get("alert_email")
                 if alert_email:
-                    result = send_expiry_alert(alert_email, expiry_items, days_threshold)
+                    result = send_alert(alert_email, expiry_items, days_threshold)
                     if "successfully" in result:
                         st.session_state["email_alert_sent"] = True
                         st.success(f"Email alert sent to {alert_email}")
@@ -315,7 +315,7 @@ def display_alerts():
             # Add a button to manually send test alert
             if st.button("Send Test Alert", use_container_width=True):
                 if expiry_items:
-                    result = send_expiry_alert(alert_email, expiry_items, days_threshold)
+                    result = send_alert(alert_email, expiry_items, days_threshold)
                     if "successfully" in result:
                         st.success(f"Test email alert sent to {alert_email}")
                     else:
@@ -527,15 +527,28 @@ def show_inventory():
                 st.error("Filters are not yet implemented. Please check the Alerts tab for expiring items")
 
         with filter_col3:
-            if st.button("🧹 Clear Inventory", use_container_width=True):
-                # Get all documents in the stock collection and delete them
-                docs = stock_collection.stream()
-                for doc in docs:
-                    doc.reference.delete()
+            # First check if we're showing confirmation
+            if "show_clear_confirmation" not in st.session_state:
+                st.session_state["show_clear_confirmation"] = False
 
-                st.session_state.inventory_data = fetch_stock()
-                st.success("Inventory Cleared: All items have been removed")
-                st.rerun()
+            # If confirmation is being shown, display the confirm button
+            if st.session_state["show_clear_confirmation"]:
+                if st.button("Confirm Clear Inventory", use_container_width=True):
+                    # Get all documents in the stock collection and delete them
+                    docs = stock_collection.stream()
+                    for doc in docs:
+                        doc.reference.delete()
+
+                    # Reset the inventory data and the confirmation flag
+                    st.session_state.inventory_data = fetch_stock()
+                    st.session_state["show_clear_confirmation"] = False
+                    st.success("Inventory Cleared: All items have been removed")
+                    st.rerun()
+            else:
+                if st.button("🧹 Clear Inventory", use_container_width=True):
+                    # Set flag to show confirmation button
+                    st.session_state["show_clear_confirmation"] = True
+                    st.rerun()
     else:
         st.info("Inventory Status: No items currently in stock")
 
