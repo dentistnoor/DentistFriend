@@ -1,9 +1,14 @@
+import os
+import smtplib
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from firebase_admin import firestore
+from dotenv import load_dotenv
 from utils import format_date, show_footer
+
+load_dotenv()
 
 # Initialize Firestore database connection
 database = firestore.client()
@@ -40,6 +45,53 @@ def modify_stock(item_name, quantity_remove):
 
         # Immediately update the inventory data in session state
         st.session_state.inventory_data = fetch_stock()
+
+
+def send_expiry_alert(email, expiry_items, days_threshold):
+    """Send email alert for items nearing expiry"""
+    # Get email credentials from environment variables
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        return "Email credentials not found in environment variables"
+
+    # Format items for email content
+    items_list = "\n".join([f"- {item['Item']}: {item['Quantity']} units, expires in {item['Days Left']} days ({item['Expiry Date']})" 
+                           for item in expiry_items])
+
+    # Prepare email content
+    subject = f"Dental Supply Alert: Items Expiring Within {days_threshold} Days"
+    body = f"""
+Hello,
+
+This is an automated alert from your Dental Supply Tracker.
+
+The following items in your inventory are expiring within {days_threshold} days:
+
+{items_list}
+
+Please review these items and take appropriate action.
+
+Regards,
+Dental Supply Tracker
+"""
+    full_message = f"Subject: {subject}\n\n{body}"
+
+    try:
+        # Connect to Gmail SMTP server
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()  # Enable encryption
+        server.login(user=ADMIN_EMAIL, password=ADMIN_PASSWORD)
+
+        # Send alert email to specified email address
+        server.sendmail(from_addr=ADMIN_EMAIL, to_addrs=email, msg=full_message)
+
+        # Close the connection
+        server.quit()
+        return "Email alert sent successfully"
+    except Exception as e:
+        return str(e)
 
 
 def main():
@@ -98,6 +150,17 @@ def display_inventory():
 def display_alerts():
     """Display alerts tab with expiry and low stock warnings"""
     st.header("Inventory Alerts")
+
+    # Initialize email alert related session states
+    doctor_doc = database.collection("doctors").document(doctor_email).get()
+    doctor_data = doctor_doc.to_dict()
+    if "alert_email" in doctor_data and doctor_data["alert_email"]:
+        st.session_state["enable_email_alerts"] = True
+        st.session_state["alert_email"] = doctor_data["alert_email"]
+    
+    # Track if we already sent an email this session to avoid spam
+    if "email_alert_sent" not in st.session_state:
+        st.session_state["email_alert_sent"] = False
 
     # Use inventory data from session state
     inventory_data = st.session_state.inventory_data
@@ -159,6 +222,17 @@ def display_alerts():
                         "Days Left": days_until_expiry
                     })
 
+            # Check if we need to send email alerts
+            if expiry_items and st.session_state.get("enable_email_alerts", False) and not st.session_state["email_alert_sent"]:
+                alert_email = st.session_state.get("alert_email")
+                if alert_email:
+                    result = send_expiry_alert(alert_email, expiry_items, days_threshold)
+                    if "successfully" in result:
+                        st.session_state["email_alert_sent"] = True
+                        st.success(f"Email alert sent to {alert_email}")
+                    else:
+                        st.error(f"Failed to send email alert: {result}")
+
             if expiry_items:
                 st.markdown("### ⚠️ Items Near Expiry")
                 expiry_df = pd.DataFrame(expiry_items)
@@ -179,6 +253,75 @@ def display_alerts():
                     st.plotly_chart(fig, use_container_width=True)
             else:
                 st.success("✅ No items are nearing expiration")
+                # Reset email sent flag when there are no items to alert about
+                st.session_state["email_alert_sent"] = False
+
+    with st.container(border=True):
+        st.subheader("Alert Settings", divider="green")
+
+        # Check if email alerts are enabled
+        previous_email_alert_state = st.session_state.get("enable_email_alerts", False)
+        enable_email_alerts = st.checkbox("Enable Email Alerts", value=previous_email_alert_state)
+
+        # Check if the checkbox state has changed
+        if enable_email_alerts and not previous_email_alert_state:
+            # Initialize alert_email in session state if not already present
+            if "alert_email" not in st.session_state:
+                # Default to doctor's email if available
+                st.session_state["alert_email"] = st.session_state.get("doctor_email", "")
+
+            # Set the document in Firestore as soon as alert is enabled
+            if doctor_email:
+                database.collection("doctors").document(doctor_email).set({
+                    "alert_email": st.session_state["alert_email"]
+                }, merge=True)
+            
+            # Reset email sent flag when enabling alerts
+            st.session_state["email_alert_sent"] = False
+
+        # If user disables email alerts, remove the alert_email from Firestore
+        if not enable_email_alerts and previous_email_alert_state:
+            database.collection("doctors").document(doctor_email).update({
+                "alert_email": firestore.DELETE_FIELD
+            })
+
+        st.session_state["enable_email_alerts"] = enable_email_alerts
+
+        # Show email configuration only if alerts are enabled
+        if enable_email_alerts:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                alert_email = st.text_input(
+                    "Alert Email",
+                    value=st.session_state.get("alert_email", ""),
+                    placeholder="Enter email for alerts"
+                )
+
+            with col2:
+                if st.button("Update Email", use_container_width=True):
+                    # Save the new alert email to session state
+                    st.session_state["alert_email"] = alert_email
+
+                    # Update the alert email in Firestore
+                    if doctor_email:
+                        database.collection("doctors").document(doctor_email).set({
+                            "alert_email": alert_email
+                        }, merge=True)
+
+                    # Reset email sent flag when changing email
+                    st.session_state["email_alert_sent"] = False
+                    st.success(f"Email updated: Alerts will be sent to {alert_email}")
+            
+            # Add a button to manually send test alert
+            if st.button("Send Test Alert", use_container_width=True):
+                if expiry_items:
+                    result = send_expiry_alert(alert_email, expiry_items, days_threshold)
+                    if "successfully" in result:
+                        st.success(f"Test email alert sent to {alert_email}")
+                    else:
+                        st.error(f"Failed to send test email alert: {result}")
+                else:
+                    st.warning("No items are near expiry. Add items that will expire soon to test the alert.")
 
 
 def display_reports():
@@ -421,6 +564,9 @@ def add_items():
             store_stock(item_name, item_quantity, expiry_string)
             st.success(f"Item Added: {item_quantity} units of '{item_name}' added to inventory")
 
+            # Reset email sent flag when adding new items that might trigger alerts
+            st.session_state["email_alert_sent"] = False
+
             # Force refresh of inventory data
             st.session_state.inventory_data = fetch_stock()
             st.rerun()
@@ -484,6 +630,9 @@ def edit_inventory():
             store_stock(edit_item, new_quantity, expiry_string)
             st.success(f"Item Updated: '{edit_item}' has been updated successfully")
 
+            # Reset email sent flag when editing items that might trigger alerts
+            st.session_state["email_alert_sent"] = False
+
             # Force refresh of inventory data
             st.session_state.inventory_data = fetch_stock()
             st.rerun()
@@ -491,6 +640,9 @@ def edit_inventory():
         elif delete_button:
             stock_collection.document(edit_item).delete()
             st.success(f"Item Removed: '{edit_item}' has been deleted from inventory")
+
+            # Reset email sent flag when deleting items that might change alert status
+            st.session_state["email_alert_sent"] = False
 
             # Force refresh of inventory data
             st.session_state.inventory_data = fetch_stock()
