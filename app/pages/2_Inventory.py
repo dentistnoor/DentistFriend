@@ -393,12 +393,23 @@ def display_reports():
         today = datetime.today().date()
         inventory_records = []
 
-        for item_name, details in inventory_data.items():
+        for item_id, details in inventory_data.items():
+            # Extract base name from item_id
+            item_name = item_id.split('_')[0] if '_' in item_id else item_id
+            item_name = item_name.capitalize()
+
+            # Format the expiry date
             expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
+            formatted_date = expiry_date.strftime("%b %d, %Y")
+
+            # Create display name for charts
+            display_name = f"{item_name} ({formatted_date})"
+
             days_until_expiry = (expiry_date - today).days
 
             inventory_records.append({
-                "Item": item_name.capitalize(),
+                "Item": item_name,  # Base name for grouping
+                "Display Name": display_name,  # Formatted name with date
                 "Quantity": details["quantity"],
                 "Days Until Expiry": days_until_expiry
             })
@@ -412,13 +423,16 @@ def display_reports():
             top_items = viz_df.sort_values("Quantity", ascending=False).head(10)
             fig1 = px.bar(
                 top_items,
-                x="Item",
+                x="Display Name",
                 y="Quantity",
                 title="Top Items by Quantity",
                 color="Quantity",
                 color_continuous_scale="Blues"
             )
-            fig1.update_layout(xaxis_title="Item", yaxis_title="Quantity")
+            fig1.update_layout(
+                xaxis_title="Item",
+                yaxis_title="Quantity",
+            )
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
@@ -427,25 +441,35 @@ def display_reports():
                 expiry_sorted = viz_df.sort_values("Days Until Expiry").head(10)
                 fig2 = px.bar(
                     expiry_sorted,
-                    x="Item",
+                    x="Display Name",
                     y="Days Until Expiry",
                     title="Items Closest to Expiry",
                     color="Days Until Expiry",
                     color_continuous_scale="RdYlGn",
                 )
-                fig2.update_layout(xaxis_title="Item", yaxis_title="Days Until Expiry")
+                fig2.update_layout(
+                    xaxis_title="Item",
+                    yaxis_title="Days Until Expiry",
+                )
                 st.plotly_chart(fig2, use_container_width=True)
 
         # Add pie chart for inventory distribution
         if len(inventory_data) > 0:
             st.subheader("Inventory Distribution")
+
+            # For pie chart, use the display name with formatted date
             fig3 = px.pie(
                 viz_df,
                 values="Quantity",
-                names="Item",
+                names="Display Name",
                 title="Inventory Distribution by Item",
                 hole=0.4
             )
+            # Make the chart responsive to varying display sizes
+            fig3.update_traces(textposition='inside', textinfo='percent+label')
+            # Set margins to give the chart more room
+            fig3.update_layout(margin=dict(t=50, b=50))
+
             st.plotly_chart(fig3, use_container_width=True)
 
         # Then summary statistics
