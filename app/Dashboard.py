@@ -51,17 +51,17 @@ def main():
                 st.session_state.clear()  # Clear session state on logout
                 st.rerun()  # Refresh the app
 
-        with col2:
-            if st.button("Reset Password", icon="🔄", use_container_width=True):
-                reset_password()
+        # with col2:
+        #     if st.button("Reset Password", icon="🔄", use_container_width=True):
+        #         reset_password()
 
-        with col3:
-            if st.button("Reset Email", icon="📧", use_container_width=True):
-                reset_email()
+        # with col3:
+        #     if st.button("Reset Email", icon="📧", use_container_width=True):
+        #         reset_email()
 
-        with col4:
-            if st.button("Delete Account", icon="🗑️", use_container_width=True):
-                delete_account()
+        # with col4:
+        #     if st.button("Delete Account", icon="🗑️", use_container_width=True):
+        #         delete_account()
 
         # Support section
         # st.divider()
@@ -239,9 +239,9 @@ def sign_in():
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    with col2:
-        if st.button("Reset Password", icon="🔄", use_container_width=True):
-            reset_password()
+    # with col2:
+    #     if st.button("Reset Password", icon="🔄", use_container_width=True):
+    #         reset_password()
 
 
 def reset_password():
