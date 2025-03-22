@@ -22,12 +22,20 @@ def fetch_stock():
     return {doc.id: doc.to_dict() for doc in stock_documents}
 
 
-def store_stock(item_name, item_quantity, expiry_date):
+def store_stock(item_name, item_quantity, expiry_date, low_threshold=5):
     """Store or update inventory item in Firestore database"""
+    # Check if item with same name and expiry date already exists
+    item_doc = stock_collection.document(item_name).get()
+    if item_doc.exists:
+        st.warning(f"Item '{item_name.split('_')[0]}' with the same expiry date already exists. Please edit the existing item instead.")
+        return False
+
     stock_collection.document(item_name).set({
         "quantity": item_quantity,
-        "expiry_date": expiry_date
+        "expiry_date": expiry_date,
+        "low_threshold": low_threshold
     }, merge=True)
+    return True
 
 
 def modify_stock(item_name, quantity_remove):
@@ -57,7 +65,7 @@ def send_alert(email, expiry_items, days_threshold):
         return "Email credentials not found in environment variables"
 
     # Format items for email content
-    items_list = "\n".join([f"- {item['Item']}: {item['Quantity']} units, expires in {item['Days Left']} days ({item['Expiry Date']})" 
+    items_list = "\n".join([f"- {item['Item']}: {item['Quantity']} units, expires in {item['Days Left']} days ({item['Expiry Date']})"
                            for item in expiry_items])
 
     # Prepare email content
@@ -153,11 +161,15 @@ def display_alerts():
 
     # Initialize email alert related session states
     doctor_doc = database.collection("doctors").document(doctor_email).get()
-    doctor_data = doctor_doc.to_dict()
-    if "alert_email" in doctor_data and doctor_data["alert_email"]:
-        st.session_state["enable_email_alerts"] = True
-        st.session_state["alert_email"] = doctor_data["alert_email"]
-    
+    if doctor_doc.exists:
+        doctor_data = doctor_doc.to_dict()
+        if "alert_email" in doctor_data and doctor_data["alert_email"]:
+            st.session_state["enable_email_alerts"] = True
+            st.session_state["alert_email"] = doctor_data["alert_email"]
+    else:
+        st.error("Doctor profile not found. Please ensure you are logged in correctly.")
+        return
+
     # Track if we already sent an email this session to avoid spam
     if "email_alert_sent" not in st.session_state:
         st.session_state["email_alert_sent"] = False
@@ -165,24 +177,36 @@ def display_alerts():
     # Use inventory data from session state
     inventory_data = st.session_state.inventory_data
 
+    if not inventory_data:
+        st.info("No inventory items found. Please add items in the Inventory tab.")
+        return
+
     col1, col2 = st.columns(2)
     with col1:
         with st.container(border=True):
             st.subheader("Low Stock Alerts", divider="red")
-            # Low stock settings and display
-            threshold = st.slider("Low Stock Threshold", min_value=1, max_value=50, value=5)
+            # Default low stock threshold for the global slider
+            global_threshold = st.slider("Global Low Stock Threshold", min_value=1, max_value=50, value=5)
 
-            # Find items below threshold quantity
-            low_stock_items = [
-                (item, details["quantity"])
-                for item, details in inventory_data.items()
-                if details["quantity"] <= threshold
-            ]
+            # Find items below threshold quantity (using item-specific threshold when available)
+            low_stock_items = []
+            for item_id, details in inventory_data.items():
+                # Get the item-specific threshold or use the global one
+                item_threshold = details.get("low_threshold", global_threshold)
+                if details["quantity"] <= item_threshold:
+                    # Extract base name from item_id
+                    item_name = item_id.split('_')[0] if '_' in item_id else item_id
+                    expiry_date = details["expiry_date"]
+                    low_stock_items.append({
+                        "Item": item_name.capitalize(),
+                        "Quantity": details["quantity"],
+                        "Threshold": item_threshold,
+                        "Expiry Date": format_date(expiry_date)
+                    })
 
             if low_stock_items:
                 st.markdown("### 🚨 Low Stock Items")
-                low_stock_df = pd.DataFrame(low_stock_items, columns=["Item", "Quantity"])
-                low_stock_df["Item"] = low_stock_df["Item"].str.capitalize()
+                low_stock_df = pd.DataFrame(low_stock_items)
                 st.dataframe(low_stock_df, use_container_width=True)
 
                 # Create a visualization of low stock items
@@ -190,9 +214,10 @@ def display_alerts():
                     low_stock_df,
                     x="Item",
                     y="Quantity",
-                    title=f"Items Below Threshold ({threshold} units)",
+                    title="Items Below Threshold",
                     color="Quantity",
-                    color_continuous_scale="Reds_r"
+                    color_continuous_scale="Reds_r",
+                    hover_data=["Threshold", "Expiry Date"]
                 )
                 fig.update_layout(xaxis_title="Item", yaxis_title="Quantity")
                 st.plotly_chart(fig, use_container_width=True)
@@ -210,17 +235,23 @@ def display_alerts():
             expiry_items = []
 
             for item, details in inventory_data.items():
-                expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
-                days_until_expiry = (expiry_date - today).days
+                try:
+                    expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
+                    days_until_expiry = (expiry_date - today).days
 
-                # Add items expiring within threshold days
-                if days_until_expiry <= days_threshold:
-                    expiry_items.append({
-                        "Item": item.capitalize(),
-                        "Quantity": details["quantity"],
-                        "Expiry Date": format_date(details["expiry_date"]),
-                        "Days Left": days_until_expiry
-                    })
+                    # Add items expiring within threshold days
+                    if days_until_expiry <= days_threshold:
+                        # Extract base name from item
+                        item_name = item.split('_')[0] if '_' in item else item
+                        expiry_items.append({
+                            "Item": item_name.capitalize(),
+                            "Quantity": details["quantity"],
+                            "Expiry Date": format_date(details["expiry_date"]),
+                            "Days Left": days_until_expiry
+                        })
+                except ValueError as e:
+                    st.error(f"Date format error for item '{item}': {str(e)}")
+                    continue
 
             # Check if we need to send email alerts
             if expiry_items and st.session_state.get("enable_email_alerts", False) and not st.session_state["email_alert_sent"]:
@@ -272,18 +303,29 @@ def display_alerts():
 
             # Set the document in Firestore as soon as alert is enabled
             if doctor_email:
-                database.collection("doctors").document(doctor_email).set({
-                    "alert_email": st.session_state["alert_email"]
-                }, merge=True)
-            
+                try:
+                    database.collection("doctors").document(doctor_email).set({
+                        "alert_email": st.session_state["alert_email"]
+                    }, merge=True)
+                except Exception as e:
+                    st.error(f"Failed to save alert settings: {str(e)}")
+            else:
+                st.error("Cannot save alert settings: No doctor email available")
+
             # Reset email sent flag when enabling alerts
             st.session_state["email_alert_sent"] = False
 
         # If user disables email alerts, remove the alert_email from Firestore
         if not enable_email_alerts and previous_email_alert_state:
-            database.collection("doctors").document(doctor_email).update({
-                "alert_email": firestore.DELETE_FIELD
-            })
+            if doctor_email:
+                try:
+                    database.collection("doctors").document(doctor_email).update({
+                        "alert_email": firestore.DELETE_FIELD
+                    })
+                except Exception as e:
+                    st.error(f"Failed to update alert settings: {str(e)}")
+            else:
+                st.error("Cannot update alert settings: No doctor email available")
 
         st.session_state["enable_email_alerts"] = enable_email_alerts
 
@@ -299,27 +341,39 @@ def display_alerts():
 
             with col2:
                 if st.button("Update Email", use_container_width=True):
-                    # Save the new alert email to session state
-                    st.session_state["alert_email"] = alert_email
+                    if not alert_email or "@" not in alert_email:
+                        st.error("Please enter a valid email address")
+                    else:
+                        # Save the new alert email to session state
+                        st.session_state["alert_email"] = alert_email
 
-                    # Update the alert email in Firestore
-                    if doctor_email:
-                        database.collection("doctors").document(doctor_email).set({
-                            "alert_email": alert_email
-                        }, merge=True)
+                        # Update the alert email in Firestore
+                        if doctor_email:
+                            try:
+                                database.collection("doctors").document(doctor_email).set({
+                                    "alert_email": alert_email
+                                }, merge=True)
+                                # Reset email sent flag when changing email
+                                st.session_state["email_alert_sent"] = False
+                                st.success(f"Email updated: Alerts will be sent to {alert_email}")
+                            except Exception as e:
+                                st.error(f"Failed to update email: {str(e)}")
+                        else:
+                            st.error("Cannot save email settings: No doctor email available")
 
-                    # Reset email sent flag when changing email
-                    st.session_state["email_alert_sent"] = False
-                    st.success(f"Email updated: Alerts will be sent to {alert_email}")
-            
             # Add a button to manually send test alert
             if st.button("Send Test Alert", use_container_width=True):
-                if expiry_items:
-                    result = send_alert(alert_email, expiry_items, days_threshold)
-                    if "successfully" in result:
-                        st.success(f"Test email alert sent to {alert_email}")
-                    else:
-                        st.error(f"Failed to send test email alert: {result}")
+                if not alert_email or "@" not in alert_email:
+                    st.error("Please enter a valid email address")
+                elif expiry_items:
+                    try:
+                        result = send_alert(alert_email, expiry_items, days_threshold)
+                        if "successfully" in result:
+                            st.success(f"Test email alert sent to {alert_email}")
+                        else:
+                            st.error(f"Failed to send test email alert: {result}")
+                    except Exception as e:
+                        st.error(f"Error sending test email: {str(e)}")
                 else:
                     st.warning("No items are near expiry. Add items that will expire soon to test the alert.")
 
@@ -444,24 +498,30 @@ def display_reports():
 
 
 def show_inventory():
-    """Display all inventory items in a data table"""
+    """Display the current inventory status with conditional formatting"""
     # Always refresh inventory data from session state
     inventory_data = st.session_state.inventory_data
 
     if inventory_data:
         st.session_state.inventory_records = []
-        for item_name, details in inventory_data.items():
+        for item_id, details in inventory_data.items():
+            # Extract base name from item_id
+            item_name = item_id.split('_')[0] if '_' in item_id else item_id
+
             # Calculate days until expiry
             today = datetime.today().date()
             expiry_date = datetime.strptime(details["expiry_date"], "%Y-%m-%d").date()
             days_until_expiry = (expiry_date - today).days
             quantity = details["quantity"]
 
+            # Get the item-specific threshold
+            item_threshold = details.get("low_threshold", 5)
+
             # Determine status
             status = "Normal"
             if days_until_expiry <= 30:
                 status = "⚠️ Expiring Soon"
-            if details["quantity"] <= 5:
+            if quantity <= item_threshold:
                 status = "🚨 Low Stock"
             if days_until_expiry <= 0:
                 status = "❌ Expired"
@@ -473,29 +533,41 @@ def show_inventory():
                 "Quantity": details["quantity"],
                 "Expiry Date": format_date(details["expiry_date"]),
                 "Days Until Expiry": days_until_expiry,
-                "Status": status
+                "Status": status,
+                "ID": item_id  # Store the original ID for reference
             })
 
         # Create DataFrame and sort by status priority
         inventory_df = pd.DataFrame(st.session_state.inventory_records)
+
         # Custom sorting function to prioritize alerts
         def status_priority(status):
             priorities = {"❌ Expired": 0, "❌ Out of Stock": 1, "🚨 Low Stock": 2, "⚠️ Expiring Soon": 3, "Normal": 4}
             return priorities.get(status, 4)
 
-        # Sort by priority (critical items first)
+        # Sort the DataFrame by status priority
         inventory_df["Status Priority"] = inventory_df["Status"].apply(status_priority)
         inventory_df = inventory_df.sort_values("Status Priority")
-        inventory_df = inventory_df.drop(columns=["Status Priority"])
+        display_df = inventory_df.drop(columns=["Status Priority", "ID"])
+
+        # Initialize the active filter in session state if it doesn't exist
+        if "active_filter" not in st.session_state:
+            st.session_state.active_filter = "All Items"
+
+        # Apply filter to the DataFrame
+        if st.session_state.active_filter != "All Items":
+            filtered_df = display_df[display_df["Status"] == st.session_state.active_filter]
+        else:
+            filtered_df = display_df
 
         # Reset index to show proper sequential numbering starting at 1
-        inventory_df = inventory_df.reset_index(drop=True)
+        filtered_df = filtered_df.reset_index(drop=True)
         # Add 1 to the index to start from 1 instead of 0
-        inventory_df.index = inventory_df.index + 1
+        filtered_df.index = filtered_df.index + 1
 
-        # Display with conditional formatting
+        # Display filtered data with conditional formatting
         st.dataframe(
-            inventory_df,
+            filtered_df,
             use_container_width=True,
             column_config={
                 "Quantity": st.column_config.NumberColumn(
@@ -516,51 +588,66 @@ def show_inventory():
             height=400
         )
 
-        # Quick filter options
-        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        st.write("### Filter Inventory")
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5, filter_col6 = st.columns(6)
+
+        # Display filter status
+        if st.session_state.active_filter != "All Items":
+            st.info(f"Showing {len(filtered_df)} items with status: {st.session_state.active_filter}")
+        else:
+            st.info(f"Showing all {len(filtered_df)} items")
+
+        # Button styling function to highlight active filter
+        def get_button_style(filter_name):
+            if st.session_state.active_filter == filter_name:
+                return "primary"
+            return "secondary"
+
+        # Create filter buttons
         with filter_col1:
-            if st.button("🔍 Show Low Stock", use_container_width=True):
-                st.error("Filters are not yet implemented. Please check the Alerts tab for low stock items")
+            if st.button("All Items", key="all_items", use_container_width=True, type=get_button_style("All Items")):
+                st.session_state.active_filter = "All Items"
+                st.rerun()
 
         with filter_col2:
-            if st.button("🔍 Show Expiring Soon", use_container_width=True):
-                st.error("Filters are not yet implemented. Please check the Alerts tab for expiring items")
+            if st.button("Normal", key="normal", use_container_width=True, type=get_button_style("Normal")):
+                st.session_state.active_filter = "Normal"
+                st.rerun()
 
         with filter_col3:
-            # First check if we're showing confirmation
-            if "show_clear_confirmation" not in st.session_state:
-                st.session_state["show_clear_confirmation"] = False
+            if st.button("🚨 Low Stock", key="low_stock", use_container_width=True, type=get_button_style("🚨 Low Stock")):
+                st.session_state.active_filter = "🚨 Low Stock"
+                st.rerun()
 
-            # If confirmation is being shown, display the confirm button
-            if st.session_state["show_clear_confirmation"]:
-                if st.button("Confirm Clear Inventory", use_container_width=True):
-                    # Get all documents in the stock collection and delete them
-                    docs = stock_collection.stream()
-                    for doc in docs:
-                        doc.reference.delete()
+        with filter_col4:
+            if st.button("⚠️ Expiring Soon", key="expiring_soon", use_container_width=True, type=get_button_style("⚠️ Expiring Soon")):
+                st.session_state.active_filter = "⚠️ Expiring Soon"
+                st.rerun()
 
-                    # Reset the inventory data and the confirmation flag
-                    st.session_state.inventory_data = fetch_stock()
-                    st.session_state["show_clear_confirmation"] = False
-                    st.success("Inventory Cleared: All items have been removed")
-                    st.rerun()
-            else:
-                if st.button("🧹 Clear Inventory", use_container_width=True):
-                    # Set flag to show confirmation button
-                    st.session_state["show_clear_confirmation"] = True
-                    st.rerun()
+        with filter_col5:
+            if st.button("❌ Expired", key="expired", use_container_width=True, type=get_button_style("❌ Expired")):
+                st.session_state.active_filter = "❌ Expired"
+                st.rerun()
+
+        with filter_col6:
+            if st.button("❌ Out of Stock", key="out_of_stock", use_container_width=True, type=get_button_style("❌ Out of Stock")):
+                st.session_state.active_filter = "❌ Out of Stock"
+                st.rerun()
     else:
         st.info("Inventory Status: No items currently in stock")
 
 
 def add_items():
     """Add new items to inventory or update existing items"""
-    column_first, column_second = st.columns(2)
+    column_first, column_second, column_third = st.columns(3)
     with column_first:
         item_name = st.text_input("Item Name", placeholder="Enter item name").strip().lower()
 
     with column_second:
         item_quantity = st.number_input("Quantity", min_value=1, step=1)
+
+    with column_third:
+        low_threshold = st.number_input("Low Stock Threshold", min_value=1, value=5, step=1)
 
     expiry_date = st.date_input("Expiry Date", min_value=datetime.today().date())
 
@@ -568,102 +655,229 @@ def add_items():
         if item_name:
             expiry_string = expiry_date.strftime("%Y-%m-%d")
 
-            # Check if item already exists
-            if item_name in st.session_state.inventory_data:
-                st.warning(f"Item '{item_name}' already exists. Please use Edit Inventory to modify it.")
-                return
+            # Generate a unique item ID based on name and expiry date
+            item_id = f"{item_name}_{expiry_string}"
 
-            # Add new item
-            store_stock(item_name, item_quantity, expiry_string)
-            st.success(f"Item Added: {item_quantity} units of '{item_name}' added to inventory")
+            # Check if item with same name and expiry date already exists
+            if item_id in st.session_state.inventory_data:
+                st.warning(f"Item '{item_name}' with the same expiry date already exists. Please edit the existing item instead.")
+            else:
+                # Store the item with its unique ID
+                success = store_stock(item_id, item_quantity, expiry_string, low_threshold)
+                if success:
+                    st.success(f"Item Added: {item_quantity} units of '{item_name}' (Expires: {format_date(expiry_string)}) added to inventory")
 
-            # Reset email sent flag when adding new items that might trigger alerts
-            st.session_state["email_alert_sent"] = False
-
-            # Force refresh of inventory data
-            st.session_state.inventory_data = fetch_stock()
-            st.rerun()
+                    # Reset email sent flag when adding new items that might trigger alerts
+                    st.session_state["email_alert_sent"] = False
+                    # Force refresh of inventory data
+                    st.session_state.inventory_data = fetch_stock()
+                    st.rerun()
         else:
             st.error("Entry Error: Please enter a valid item name")
 
 
 def edit_inventory():
     """Edit or remove items from inventory"""
-    edit_item = st.text_input("Item to Edit", placeholder="Enter item name to edit").strip().lower()
+    base_item_name = st.text_input("Item to Edit", placeholder="Enter item name to edit").strip().lower()
     find_edit_button = st.button("🔍 Find Item", use_container_width=True)
 
-    # Item found in inventory - display edit options
-    if edit_item in st.session_state.inventory_data:
-        item_details = st.session_state.inventory_data[edit_item]
-        st.success(f"Item Found: '{edit_item}'")
+    # Track if we're in search mode or edit mode
+    if "edit_search_mode" not in st.session_state:
+        st.session_state.edit_search_mode = False
 
-        # Display current item information
-        st.info(f"Current quantity: {item_details['quantity']} units | Expiry date: {format_date(item_details['expiry_date'])}")
+    # Start search when button is clicked
+    if base_item_name and find_edit_button:
+        # Clear previous selections when searching for a new item
+        st.session_state.pop("edit_item_id", None)
+        st.session_state.pop("matching_items", None)
+        st.session_state.edit_search_mode = True
 
-        # Create two-column layout for edit inputs
-        edit_col1, edit_col2 = st.columns(2)
-        with edit_col1:
-            new_quantity = st.number_input(
-                "New Quantity",
-                min_value=0,
-                value=item_details['quantity'],
-                step=1
+        # Find all items that start with the base name
+        matching_items = {}
+        for item_id, details in st.session_state.inventory_data.items():
+            # Extract the base name from the item_id (removing the _date suffix)
+            if '_' in item_id:
+                name_part = item_id.split('_')[0]
+                if name_part == base_item_name:
+                    # Add to matching items with expiry date as key info
+                    matching_items[item_id] = {
+                        "name": name_part,
+                        "expiry_date": details["expiry_date"],
+                        "quantity": details["quantity"],
+                        "low_threshold": details.get("low_threshold", 5)
+                    }
+            elif item_id == base_item_name:
+                # Handle items without expiry date in ID (legacy format)
+                matching_items[item_id] = {
+                    "name": item_id,
+                    "expiry_date": details["expiry_date"],
+                    "quantity": details["quantity"],
+                    "low_threshold": details.get("low_threshold", 5)
+                }
+
+        # No items found
+        if not matching_items:
+            st.error(f"Item Not Found: '{base_item_name}' does not exist in inventory")
+            st.session_state.edit_search_mode = False
+            return
+
+        # Store matching items in session state to access them after rerun
+        st.session_state.matching_items = matching_items
+        st.session_state.search_term = base_item_name
+
+    # Check if we have matching items from a previous search
+    if st.session_state.get("edit_search_mode") and "matching_items" in st.session_state:
+        matching_items = st.session_state.matching_items
+
+        # Select the item to edit
+        edit_item = None
+
+        # If only one matching item, select it directly
+        if len(matching_items) == 1:
+            edit_item = list(matching_items.keys())[0]
+            st.session_state.edit_item_id = edit_item
+        # If multiple matching items, show dropdown
+        else:
+            item_options = []
+            for item_id, details in matching_items.items():
+                display_text = f"{details['name']} (Expires: {format_date(details['expiry_date'])}) - {details['quantity']} units"
+                item_options.append({"id": item_id, "display": display_text})
+
+            selected_option = st.selectbox(
+                "Select Item to Edit",
+                options=[item["display"] for item in item_options],
+                index=0,
+                key="item_selector"
             )
 
-        with edit_col2:
-            # Convert string date to datetime object for the date input widget
-            try:
-                current_expiry = datetime.strptime(item_details['expiry_date'], "%Y-%m-%d").date()
-                # Ensure current_expiry is not before today to avoid date validation error
-                today = datetime.today().date()
-                if current_expiry < today:
-                    current_expiry = today
+            # Get the selected item ID
+            selected_index = item_options.index(next(item for item in item_options if item["display"] == selected_option))
+            edit_item = item_options[selected_index]["id"]
+            st.session_state.edit_item_id = edit_item
 
-                new_expiry = st.date_input(
-                    "New Expiry Date",
-                    value=current_expiry,
-                    min_value=today
-                )
-            except Exception as e:
-                # Handle any date parsing errors
-                st.error(f"Date validation error: {e}")
-                new_expiry = datetime.today().date()
+        # Handle item editing
+        if edit_item and edit_item in st.session_state.inventory_data:
+            handle_item_editing(edit_item)
+        elif "edit_item_id" in st.session_state:
+            # Item no longer exists (probably deleted)
+            st.error("The selected item no longer exists in the inventory.")
+            st.session_state.edit_search_mode = False
+            st.session_state.pop("edit_item_id", None)
+            st.session_state.pop("matching_items", None)
 
-        # Create two buttons side by side - Save Changes and Delete Item
-        col1, col2 = st.columns(2)
-        with col1:
-            save_changes = st.button("✅ Save Changes", use_container_width=True)
 
-        with col2:
-            delete_button = st.button("🗑️ Delete Item", use_container_width=True)
+def handle_item_editing(edit_item):
+    """Handle the editing interface for a specific inventory item"""
+    item_details = st.session_state.inventory_data[edit_item]
+    base_name = edit_item.split('_')[0] if '_' in edit_item else edit_item
 
-        # Process based on which button was clicked
-        if save_changes:
+    # Display current item information
+    st.info(f"Editing: '{base_name}' | Current quantity: {item_details['quantity']} units | "
+           f"Expiry date: {format_date(item_details['expiry_date'])}")
+
+    # Create column layout for edit inputs
+    edit_col1, edit_col2, edit_col3 = st.columns(3)
+    with edit_col1:
+        new_quantity = st.number_input(
+            "New Quantity",
+            min_value=0,
+            value=item_details['quantity'],
+            step=1
+        )
+
+    with edit_col2:
+        try:
+            current_expiry = datetime.strptime(item_details['expiry_date'], "%Y-%m-%d").date()
+            today = datetime.today().date()
+            if current_expiry < today:
+                current_expiry = today
+
+            new_expiry = st.date_input(
+                "New Expiry Date",
+                value=current_expiry,
+                min_value=today
+            )
+        except Exception as e:
+            st.error(f"Date validation error: {e}")
+            new_expiry = datetime.today().date()
+
+    with edit_col3:
+        new_threshold = st.number_input(
+            "New Low Stock Threshold",
+            min_value=1,
+            value=item_details.get('low_threshold', 5),
+            step=1
+        )
+
+    # Create two buttons side by side - Save Changes and Delete Item
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Save Changes", use_container_width=True, key="save_changes"):
             expiry_string = new_expiry.strftime("%Y-%m-%d")
-            store_stock(edit_item, new_quantity, expiry_string)
-            st.success(f"Item Updated: '{edit_item}' has been updated successfully")
 
-            # Reset email sent flag when editing items that might trigger alerts
-            st.session_state["email_alert_sent"] = False
+            # If expiry date changed, we need to create a new item ID and delete the old one
+            new_item_id = f"{base_name}_{expiry_string}"
 
-            # Force refresh of inventory data
-            st.session_state.inventory_data = fetch_stock()
-            st.rerun()
+            if new_item_id != edit_item:
+                # Check if an item with the new ID already exists
+                if new_item_id in st.session_state.inventory_data:
+                    st.error(f"Cannot update: An item with name '{base_name}' and expiry date {format_date(expiry_string)} already exists")
+                else:
+                    # Create new item with updated expiry
+                    stock_collection.document(new_item_id).set({
+                        "quantity": new_quantity,
+                        "expiry_date": expiry_string,
+                        "low_threshold": new_threshold
+                    }, merge=True)
+                    # Delete old item
+                    stock_collection.document(edit_item).delete()
+                    st.success(f"Item Updated with new expiry: '{base_name}' has been updated successfully")
 
-        elif delete_button:
-            stock_collection.document(edit_item).delete()
-            st.success(f"Item Removed: '{edit_item}' has been deleted from inventory")
+                    # Reset email sent flag when editing items that might trigger alerts
+                    st.session_state["email_alert_sent"] = False
+                    # Clear session state
+                    st.session_state.pop("edit_item_id", None)
+                    st.session_state.pop("matching_items", None)
+                    # Force refresh of inventory data
+                    st.session_state.inventory_data = fetch_stock()
+                    st.rerun()
+            else:
+                # Update existing item
+                stock_collection.document(edit_item).set({
+                    "quantity": new_quantity,
+                    "expiry_date": expiry_string,
+                    "low_threshold": new_threshold
+                }, merge=True)
+                st.success(f"Item Updated: '{base_name}' has been updated successfully")
 
-            # Reset email sent flag when deleting items that might change alert status
-            st.session_state["email_alert_sent"] = False
+                # Reset email sent flag when editing items that might trigger alerts
+                st.session_state["email_alert_sent"] = False
+                # Clear session state
+                st.session_state.pop("edit_item_id", None)
+                st.session_state.pop("matching_items", None)
+                # Force refresh of inventory data
+                st.session_state.inventory_data = fetch_stock()
+                st.rerun()
 
-            # Force refresh of inventory data
-            st.session_state.inventory_data = fetch_stock()
-            st.rerun()
+    with col2:
+        if st.button("🗑️ Delete Item", use_container_width=True, key="delete_item"):
+            # Directly delete the item and clear state in one go
+            try:
+                stock_collection.document(edit_item).delete()
+                st.success(f"Item Removed: '{base_name}' (Expires: {format_date(item_details['expiry_date'])}) has been deleted from inventory")
 
-    # Item not found in inventory
-    elif edit_item and find_edit_button:
-        st.error(f"Item Not Found: '{edit_item}' does not exist in inventory")
+                # Reset email sent flag when deleting items that might change alert status
+                st.session_state["email_alert_sent"] = False
+
+                # Clear all session state variables related to editing
+                st.session_state.pop("edit_item_id", None)
+                st.session_state.pop("matching_items", None)
+
+                # Force refresh of inventory data
+                st.session_state.inventory_data = fetch_stock()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error deleting item: {str(e)}")
 
 
 main()
