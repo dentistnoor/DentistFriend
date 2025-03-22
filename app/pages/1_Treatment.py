@@ -243,7 +243,7 @@ def main():
                         st.rerun()
 
         # Create tabs for better organization of patient data
-        tab1, tab2, tab3 = st.tabs(["Treatment", "Imaging", "Cost"])
+        tab1, tab2 = st.tabs(["Treatment", "Cost"])
 
         # Tab 1: Treatment (Dental Chart, Treatment Plan, Treatment Management)
         with tab1:
@@ -500,25 +500,25 @@ def main():
                 st.info("No procedures have been added to the treatment plan yet")
 
         # Tab 2: Dental Imaging
-        with tab2:
-            st.header("Dental Imaging")
-            st.info("NOTE: Uploading multiple images is not supported yet", icon="📢")
+        # with tab2:
+        #     st.header("Dental Imaging")
+        #     st.info("NOTE: Uploading multiple images is not supported yet", icon="📢")
 
-            # X-ray image upload functionality
-            image_file = st.file_uploader("Upload X-Ray Image", type=["jpg", "png", "jpeg"], key="xray_upload")
-            image_path = None
-            if image_file:
-                try:
-                    file_extension = image_file.name.split(".")[-1].lower()
-                    image_path = f"xray_{patient_info['name'] or 'unknown'}.{file_extension}"
-                    with open(image_path, "wb") as file_handler:
-                        file_handler.write(image_file.getbuffer())
-                    st.image(image_file, caption="Uploaded X-Ray Image", use_container_width=True)
-                except Exception as e:
-                    st.error(f"Image Upload Error: {str(e)}")
+        #     # X-ray image upload functionality
+        #     image_file = st.file_uploader("Upload X-Ray Image", type=["jpg", "png", "jpeg"], key="xray_upload")
+        #     image_path = None
+        #     if image_file:
+        #         try:
+        #             file_extension = image_file.name.split(".")[-1].lower()
+        #             image_path = f"xray_{patient_info['name'] or 'unknown'}.{file_extension}"
+        #             with open(image_path, "wb") as file_handler:
+        #                 file_handler.write(image_file.getbuffer())
+        #             st.image(image_file, caption="Uploaded X-Ray Image", use_container_width=True)
+        #         except Exception as e:
+        #             st.error(f"Image Upload Error: {str(e)}")
 
         # Tab 3: Cost Summary
-        with tab3:
+        with tab2:
             st.header("Cost Summary")
             total_price = sum(item["Cost"] for item in st.session_state.treatment_record)
             discount_calculation = 0
@@ -592,7 +592,7 @@ def main():
                                 discount_calculation,
                                 tax_calculation,
                                 total_price,
-                                image_path
+                                # image_path
                             )
 
                             # Read generated PDF for download
