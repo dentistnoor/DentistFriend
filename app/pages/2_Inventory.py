@@ -154,6 +154,20 @@ def display_inventory():
             st.subheader("Edit Inventory", divider="orange")
             edit_inventory()
 
+    # with st.container(border=True):
+    #     st.subheader("Import Inventory", divider="green")
+
+    #     # Excel file uploader
+    #     uploaded_file = st.file_uploader(
+    #         "Upload Excel File",
+    #         type=['csv', 'xlsx'],
+    #         help="Upload a CSV or Excel file containing inventory data",
+    #     )
+
+    #     # Import button
+    #     if st.button("🔼 Import Excel", use_container_width=True):
+    #         st.info("Excel import functionality will be implemented soon.")
+
 
 def display_alerts():
     """Display alerts tab with expiry and low stock warnings"""

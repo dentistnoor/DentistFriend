@@ -245,82 +245,78 @@ def sign_in():
 
 
 def reset_password():
-    st.error("This feature is currently development")
-    # email = st.text_input("Enter your email")
-    # if st.button("Send Reset Email", icon="🔄", use_container_width=True):
-    #     if not email:
-    #         st.error("Please enter your email address.")
-    #     else:
-    #         try:
-    #             # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
-    #             action_code_settings = auth.ActionCodeSettings(
-    #                 url="http://127.0.0.1:8501",
-    #             )
-    #             auth.generate_password_reset_link(email, action_code_settings)
-    #             st.success("Password reset email sent. Check your inbox.")
-    #         except firebase_admin.auth.UserNotFoundError:
-    #             st.error("Email not found.")
-    #         except Exception as e:
-    #             st.error(f"Error: {e}")
+    email = st.text_input("Enter your email")
+    if st.button("Send Reset Email", icon="🔄", use_container_width=True):
+        if not email:
+            st.error("Please enter your email address.")
+        else:
+            try:
+                action_code_settings = auth.ActionCodeSettings(
+                    url="https://identitytoolkit.googleapis.com/v1",
+                )
+                auth.generate_password_reset_link(email, action_code_settings)
+                st.success("Password reset email sent. Check your inbox.")
+            except firebase_admin.auth.UserNotFoundError:
+                st.error("Email not found.")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 
 def reset_email():
-    st.error("This feature is currently in development")
     # Get the currently stored email from session state
-    # current_email = st.session_state.get("doctor_email")
-    # new_email = st.text_input("New Email Address")
+    current_email = st.session_state.get("doctor_email")
+    new_email = st.text_input("New Email Address")
 
-    # if st.button("Update Email", icon="📧", use_container_width=True):
-    #     if not new_email:
-    #         st.error("Please enter a new email address.")
-    #         return
+    if st.button("Update Email", icon="📧", use_container_width=True):
+        if not new_email:
+            st.error("Please enter a new email address.")
+            return
 
-    #     try:
-    #         # Fetch the user details using the current email
-    #         user = auth.get_user_by_email(current_email)
-    #         auth.update_user(user.uid, email=new_email)  # Update email in authentication system
+        try:
+            # Fetch the user details using the current email
+            user = auth.get_user_by_email(current_email)
+            auth.update_user(user.uid, email=new_email)  # Update email in authentication system
 
-    #         # Retrieve doctor data from Firestore
-    #         doctor_doc = database.collection("doctors").document(current_email).get()
-    #         doctor_data = doctor_doc.to_dict()
+            # Retrieve doctor data from Firestore
+            doctor_doc = database.collection("doctors").document(current_email).get()
+            doctor_data = doctor_doc.to_dict()
 
-    #         # Update email field in the retrieved data
-    #         doctor_data["email"] = new_email
-    #         database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
+            # Update email field in the retrieved data
+            doctor_data["email"] = new_email
+            database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
 
-    #         # Delete the old document associated with the previous email
-    #         database.collection("doctors").document(current_email).delete()
+            # Delete the old document associated with the previous email
+            database.collection("doctors").document(current_email).delete()
 
-    #         # Update session state with the new email
-    #         st.session_state["doctor_email"] = new_email
-    #         st.success("Email updated successfully!")
-    #         st.rerun()  # Refresh the app to reflect changes
+            # Update session state with the new email
+            st.session_state["doctor_email"] = new_email
+            st.success("Email updated successfully!")
+            st.rerun()  # Refresh the app to reflect changes
 
-    #     except firebase_admin.auth.EmailAlreadyExistsError:
-    #         st.error("Email already in use.")  # Handle case where new email is already taken
-    #     except Exception as e:
-    #         st.error(f"Error: {e}")  # Handle any other unexpected errors
+        except firebase_admin.auth.EmailAlreadyExistsError:
+            st.error("Email already in use.")  # Handle case where new email is already taken
+        except Exception as e:
+            st.error(f"Error: {e}")  # Handle any other unexpected errors
 
 
 def delete_account():
-    st.error("This feature is currently in development")
-    # email = st.session_state.get("doctor_email")
-    # if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
-    #     try:
-    #         # Delete document from Firestore
-    #         database.collection("doctors").document(email).delete()
+    email = st.session_state.get("doctor_email")
+    if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
+        try:
+            # Delete document from Firestore
+            database.collection("doctors").document(email).delete()
 
-    #         # Delete user from Firebase Authentication
-    #         user = auth.get_user_by_email(email)
-    #         auth.delete_user(user.uid)
+            # Delete user from Firebase Authentication
+            user = auth.get_user_by_email(email)
+            auth.delete_user(user.uid)
 
-    #         st.success("Account deleted successfully!")
-    #         st.session_state.clear()  # Clear session state
-    #         st.rerun()  # Refresh the app
-    #     except firebase_admin.auth.UserNotFoundError:
-    #         st.error("User not found.")
-    #     except Exception as e:
-    #         st.error(f"Error: {e}")
+            st.success("Account deleted successfully!")
+            st.session_state.clear()  # Clear session state
+            st.rerun()  # Refresh the app
+        except firebase_admin.auth.UserNotFoundError:
+            st.error("User not found.")
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":
