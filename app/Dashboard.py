@@ -22,8 +22,8 @@ database = firestore.client()
 
 
 def main():
-    st.title("🦷 Dentist Friend")
-    st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠️")
+    st.image('assets/header.jpg')
+    st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠")
 
     # Initialize session state for login tracking
     if "logged_in" not in st.session_state:
@@ -47,7 +47,7 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            if st.button("Logout", icon="↩️", use_container_width=True):
+            if st.button("Logout", icon="↩", use_container_width=True):
                 st.session_state.clear()  # Clear session state on logout
                 st.rerun()  # Refresh the app
 
@@ -60,7 +60,7 @@ def main():
         #         reset_email()
 
         # with col4:
-        #     if st.button("Delete Account", icon="🗑️", use_container_width=True):
+        #     if st.button("Delete Account", icon="🗑", use_container_width=True):
         #         delete_account()
 
         # Support section
@@ -73,14 +73,14 @@ def main():
     else:
         # Non-logged in user view
         show_info()
-        st.divider()
+        # st.divider()
 
-        tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
-        with tab1:
-            sign_in()
-
-        with tab2:
-            sign_up()
+        # tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
+        # with tab1:
+        #     sign_in()
+        #
+        # with tab2:
+        #     sign_up()
 
         # Support section
         # st.divider()
@@ -92,59 +92,55 @@ def main():
 
 
 def show_info():
-    # col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([1, 1])
 
-    # with col1:
+    with col1:
         st.markdown(
             """
-            ## What is Dentist Friend?
-
-            **Dentist Friend** is an advanced dental practice management solution designed specifically
-            for dental professionals in rural or remote areas where access to such systems is limited
-            or prohibitively expensive. This comprehensive platform streamlines various aspects of
-            dental practice management, making it easier for dentists to manage patient treatment plans,
-            inventory, and communication smoothly.
-
             ### Key Features
-            - **Patient Management:** Register new patients, search for existing patients, and manage
+            - *Patient Management:* Register new patients, search for existing patients, and manage
               detailed treatment plans, including dental chart assessments, treatment procedures,
               cost summaries, scheduling, and PDF generation.
-            - **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock
+            - *Inventory Management:* Add, remove, and modify inventory items with alerts for low stock
               and expiring items.
-            - **Scheduling System:** Efficiently manage appointments, view available time slots, and send automated
-            reminders for upcoming visits.
+
             """
         )
 
-    # with col2:
-    #     st.image("assets/logo.jpg", caption="Demo Video Coming Soon")
+    with col2:
+        tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
+        with tab1:
+            sign_in()
+
+        with tab2:
+            sign_up()
 
 
 def show_support():
-    st.markdown("## ❤️ Support Dentist Friend")
+    st.markdown("## ❤ Support Dentist Friend")
     st.markdown("""
     Thank you for considering supporting Dentist Friend! Your donations help us improve our services and develop new features.
 
     ### Donation Options:
-    - **UPI**: Dentist Friend@upi
+    - *UPI*: Dentist Friend@upi
 
     Every contribution helps us make dental practice management better for everyone. Thank you for your support!
     """)
 
 
 def show_team():
-    st.markdown("## 🛠️ Team")
+    st.markdown("## 🛠 Team")
     team_col1, team_col2 = st.columns(2)
 
     with team_col1:
         st.image("assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
-        st.markdown("**Dentist, BDS**")
+        st.markdown("*Dentist, BDS*")
         st.markdown("Al-Ameen Dental College, Vijayapura (1996-2001)")
         st.markdown("📧 Contact: [noordentist@gmail.com](mailto:noordentist@gmail.com)")
 
     with team_col2:
         st.image("assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
-        st.markdown("**Student Developer, B.E CSE**")
+        st.markdown("*Student Developer, B.E CSE*")
         st.markdown("Dayananda Sagar College of Engineering, Bangaluru (2022-2026)")
         st.markdown("📧 Contact: [hi@areeb.cloud](mailto:hi@areeb.cloud)")
 
@@ -162,15 +158,15 @@ def show_nav():
             st.switch_page("pages/2_Inventory.py")
 
     with col3:
-            if st.button("📅 Schedule", use_container_width=True):
-                st.switch_page("pages/3_Schedule.py")
+        if st.button("📅 Schedule", use_container_width=True):
+            st.switch_page("pages/3_Schedule.py")
 
     with col4:
         if st.button("📞 Contact", use_container_width=True):
             st.switch_page("pages/4_Contact.py")
 
     with col5:
-        if st.button("⚙️ Settings", use_container_width=True):
+        if st.button("⚙ Settings", use_container_width=True):
             st.switch_page("pages/5_Settings.py")
 
     st.info("First-time user? Configure your settings to get started")
@@ -239,84 +235,117 @@ def sign_in():
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # with col2:
-    #     if st.button("Reset Password", icon="🔄", use_container_width=True):
-    #         reset_password()
+    with col2:
+        if st.button("Reset Password", icon="🔄", use_container_width=True):
+            reset_password()
+
 
 
 def reset_password():
-    email = st.text_input("Enter your email")
+    st.subheader("Reset Your Password")
+    email = st.text_input("Enter your email", key="reset_email")
+
     if st.button("Send Reset Email", icon="🔄", use_container_width=True):
         if not email:
             st.error("Please enter your email address.")
         else:
             try:
+                # Setup action code settings for Firebase password reset
                 action_code_settings = auth.ActionCodeSettings(
-                    url="https://identitytoolkit.googleapis.com/v1",
+                    url="http://127.0.0.1:8501/reset-password'",  # Replace with your app's URL as needed
+                    handle_code_in_app=False
                 )
-                auth.generate_password_reset_link(email, action_code_settings)
-                st.success("Password reset email sent. Check your inbox.")
+                # Generate the password reset link
+                reset_link = auth.generate_password_reset_link(email, action_code_settings)
+                st.success(f"Password reset email sent! Please check your inbox.\n\nReset link: {reset_link}")
             except firebase_admin.auth.UserNotFoundError:
-                st.error("Email not found.")
+                st.error("Email not found. Please check the email provided.")
             except Exception as e:
                 st.error(f"Error: {e}")
 
 
+# To integrate reset_password into your app, you might call it in sign_in:
+# with col2:
+#     if st.button("Reset Password", icon="🔄", use_container_width=True):
+#          reset_password()
+
+# def reset_password():
+#     st.error("This feature is currently development")
+    # email = st.text_input("Enter your email")
+    # if st.button("Send Reset Email", icon="🔄", use_container_width=True):
+    #     if not email:
+    #         st.error("Please enter your email address.")
+    #     else:
+    #         try:
+    #             # TODO: https://firebase.google.com/docs/auth/admin/email-action-links
+    #             action_code_settings = auth.ActionCodeSettings(
+    #                 url="http://127.0.0.1:8501",
+    #             )
+    #             auth.generate_password_reset_link(email, action_code_settings)
+    #             st.success("Password reset email sent. Check your inbox.")
+    #         except firebase_admin.auth.UserNotFoundError:
+    #             st.error("Email not found.")
+    #         except Exception as e:
+    #             st.error(f"Error: {e}")
+
+
 def reset_email():
+    st.error("This feature is currently in development")
     # Get the currently stored email from session state
-    current_email = st.session_state.get("doctor_email")
-    new_email = st.text_input("New Email Address")
+    # current_email = st.session_state.get("doctor_email")
+    # new_email = st.text_input("New Email Address")
 
-    if st.button("Update Email", icon="📧", use_container_width=True):
-        if not new_email:
-            st.error("Please enter a new email address.")
-            return
+    # if st.button("Update Email", icon="📧", use_container_width=True):
+    #     if not new_email:
+    #         st.error("Please enter a new email address.")
+    #         return
 
-        try:
-            # Fetch the user details using the current email
-            user = auth.get_user_by_email(current_email)
-            auth.update_user(user.uid, email=new_email)  # Update email in authentication system
+    #     try:
+    #         # Fetch the user details using the current email
+    #         user = auth.get_user_by_email(current_email)
+    #         auth.update_user(user.uid, email=new_email)  # Update email in authentication system
 
-            # Retrieve doctor data from Firestore
-            doctor_doc = database.collection("doctors").document(current_email).get()
-            doctor_data = doctor_doc.to_dict()
+    #         # Retrieve doctor data from Firestore
+    #         doctor_doc = database.collection("doctors").document(current_email).get()
+    #         doctor_data = doctor_doc.to_dict()
 
-            # Update email field in the retrieved data
-            doctor_data["email"] = new_email
-            database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
+    #         # Update email field in the retrieved data
+    #         doctor_data["email"] = new_email
+    #         database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
 
-            # Delete the old document associated with the previous email
-            database.collection("doctors").document(current_email).delete()
+    #         # Delete the old document associated with the previous email
+    #         database.collection("doctors").document(current_email).delete()
 
-            # Update session state with the new email
-            st.session_state["doctor_email"] = new_email
-            st.success("Email updated successfully!")
-            st.rerun()  # Refresh the app to reflect changes
+    #         # Update session state with the new email
+    #         st.session_state["doctor_email"] = new_email
+    #         st.success("Email updated successfully!")
+    #         st.rerun()  # Refresh the app to reflect changes
 
-        except firebase_admin.auth.EmailAlreadyExistsError:
-            st.error("Email already in use.")  # Handle case where new email is already taken
-        except Exception as e:
-            st.error(f"Error: {e}")  # Handle any other unexpected errors
+    #     except firebase_admin.auth.EmailAlreadyExistsError:
+    #         st.error("Email already in use.")  # Handle case where new email is already taken
+    #     except Exception as e:
+    #         st.error(f"Error: {e}")  # Handle any other unexpected errors
 
 
 def delete_account():
-    email = st.session_state.get("doctor_email")
-    if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
-        try:
-            # Delete document from Firestore
-            database.collection("doctors").document(email).delete()
+    st.error("This feature is currently in development")
+    # email = st.session_state.get("doctor_email")
+    # if st.button("Confirm Deletion", icon="⚠", use_container_width=True):
+    #     try:
+    #         # Delete document from Firestore
+    #         database.collection("doctors").document(email).delete()
 
-            # Delete user from Firebase Authentication
-            user = auth.get_user_by_email(email)
-            auth.delete_user(user.uid)
+    #         # Delete user from Firebase Authentication
+    #         user = auth.get_user_by_email(email)
+    #         auth.delete_user(user.uid)
 
-            st.success("Account deleted successfully!")
-            st.session_state.clear()  # Clear session state
-            st.rerun()  # Refresh the app
-        except firebase_admin.auth.UserNotFoundError:
-            st.error("User not found.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+    #         st.success("Account deleted successfully!")
+    #         st.session_state.clear()  # Clear session state
+    #         st.rerun()  # Refresh the app
+    #     except firebase_admin.auth.UserNotFoundError:
+    #         st.error("User not found.")
+    #     except Exception as e:
+    #         st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":

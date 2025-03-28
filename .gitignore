@@ -7,7 +7,7 @@ __pycache__/
 .idea/
 
 # Database files
-firebase-config.json
+# firebase-config.json
 
 # Local development files
 .env
@@ -16,3 +16,4 @@ firebase-config.json
 *.jpeg
 *.pdf
 *.csv
+!header.jpg
