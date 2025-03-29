@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Build & push Docker image
