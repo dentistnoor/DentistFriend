@@ -1,0 +1,11 @@
+# Python-specific files
+.venv/
+__pycache__/
+
+# Project-specific files
+.github/
+.gitignore
+README.md
+
+# Docker-specific files
+Dockerfile
