@@ -9,9 +9,12 @@ Dentist Friend is an advanced dental practice management solution designed speci
 
 ### Key Features
 
-- **Patient Management:** Register new patients, search for existing patients, and manage detailed treatment plans, including dental chart assessments, treatment procedures, cost summaries, scheduling, and PDF generation.
-- **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock and expiring items.
-- **Scheduling System:** Efficiently manage appointments, view available time slots, and send automated reminders for upcoming visits.
+- **Patient Management**:  Register patients, search records, and manage treatments with dental charts, procedures,
+cost summaries, and PDF export.
+
+- **Inventory Management**: Add, remove, and modify inventory items with alerts for low stock and expiring items.
+
+- **Scheduling System**: Efficiently manage appointments, view available time slots, and send automated reminders for upcoming visits.
 
 ### Disclaimer
 
@@ -28,6 +31,8 @@ Please note that **Dentist Friend** is not intended to replace or infringe upon 
 - **Streamlit UI:** An interactive and user-friendly interface for managing patient treatment plans, inventory, and communication. This UI is designed to allow dental professionals to seamlessly navigate the platform and manage all the core functionalities from one place.
 
 - **Google Firestore Database:** A secure and scalable backend for storing patient and inventory data. Firestore provides real-time synchronization across devices and ensures that all data remains up-to-date and consistent across all users.
+
+- **Cloudinary:** A cloud-based media management service for efficient storage and delivery of dental images, X-rays, and other clinical media files.
 
 ## License
 

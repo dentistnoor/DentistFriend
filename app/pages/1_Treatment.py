@@ -3,7 +3,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from firebase_admin import firestore
-from utils import format_date, show_footer, generate_pdf, render_chart, get_currency_symbol
+from cloudinary.uploader import upload, destroy
+from cloudinary.utils import cloudinary_url
+from utils import format_date, show_footer, generate_pdf, render_chart, get_currency_symbol, configure_cloudinary
 
 # Initialize session state variables to track patient status and treatment records
 if "patient_status" not in st.session_state:
@@ -70,11 +72,9 @@ def load_settings(doctor_email):
         doctor_ref = database.collection("doctors").document(doctor_email)
         settings_doc = doctor_ref.collection("settings").document("config").get()
 
-        # If settings exist, return them
         if settings_doc.exists:
             return settings_doc.to_dict()
         else:
-            # Return default settings if none exist
             return {
                 "treatment_procedures": ["Cleaning"],
                 "price_estimates": {"Cleaning": 100}
@@ -90,6 +90,11 @@ def main():
     if st.session_state.get("doctor_email") is None:
         st.error("Doctor Authentication Required: Please log in to access patient management")
         return
+
+    with st.sidebar:
+        if st.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
 
     # Load doctor-specific settings from Firestore
     doctor_email = st.session_state.get("doctor_email")
@@ -243,7 +248,7 @@ def main():
                         st.rerun()
 
         # Create tabs for better organization of patient data
-        tab1, tab2 = st.tabs(["Treatment", "Cost"])
+        tab1, tab2, tab3 = st.tabs(["Treatment", "Dental Imaging", "Cost Summary"])
 
         # Tab 1: Treatment (Dental Chart, Treatment Plan, Treatment Management)
         with tab1:
@@ -300,11 +305,14 @@ def main():
                     price_estimates = dental_data["price_estimates"]
                     procedure_price = price_estimates.get(treatment_procedure, 0)
 
+                    # Get tooth condition from the dental chart
+                    tooth_condition = updated_chart.get(tooth_identifier, "Healthy")
+
                     submit_button = st.form_submit_button("➕ Add Procedure", use_container_width=True)
                     if submit_button:
                         # Check for duplicate procedures - prevent adding same procedure to same tooth
                         existing_procedures = [item for item in st.session_state.treatment_record
-                                              if item["Tooth"] == tooth_identifier and item["Procedure"] == treatment_procedure]
+                                               if item["Tooth"] == tooth_identifier and item["Procedure"] == treatment_procedure]
                         if not existing_procedures:
                             # Calculate default dates for treatment timeline
                             today = datetime.today()
@@ -315,6 +323,7 @@ def main():
                             # Create new treatment record with default schedule
                             new_procedure = {
                                 "Tooth": tooth_identifier,
+                                "Condition": tooth_condition ,
                                 "Procedure": treatment_procedure,
                                 "Cost": procedure_price,
                                 "Status": "Pending",
@@ -341,17 +350,17 @@ def main():
                         st.write("**Treatment Procedures**")
 
                         # Create header row for the treatment management table
-                        col_headers = st.columns([2, 3, 2, 3, 1])
+                        col_headers = st.columns([2, 2, 2, 3, 1])
                         with col_headers[0]:
                             st.write("**Tooth**")
                         with col_headers[1]:
-                            st.write("**Procedure**")
+                            st.write("**Condition**")
                         with col_headers[2]:
-                            st.write("**Status**")
+                            st.write("**Procedure**")
+                        # with col_headers[3]:
+                        #     st.write("**Status**")
                         with col_headers[3]:
                             st.write("**Start Date**")
-                        # with col_headers[4]:
-                        #     st.write("**Duration (days)**")
                         with col_headers[4]:
                             st.write("**Action**")
 
@@ -363,13 +372,22 @@ def main():
                             procedure = row["Procedure"]
                             key_id = f"{tooth}_{procedure}_{i}"
 
-                            cols = st.columns([2, 3, 2, 3, 1])
+                            # Get current tooth condition from updated chart or existing record
+                            tooth_condition = updated_chart.get(tooth, row.get("Condition", "Healthy"))
+
+                            # Update condition in the treatment record if it changed in the dental chart
+                            if "Condition" in row and row["Condition"] != tooth_condition:
+                                st.session_state.treatment_record[i]["Condition"] = tooth_condition
+
+                            cols = st.columns([2, 2, 2, 3, 1])
 
                             with cols[0]:
                                 st.write(f"Tooth {tooth}")
-
+                                
                             with cols[1]:
-                                # Procedure selector with current procedure pre-selected
+                                st.write(tooth_condition)
+
+                            with cols[2]:
                                 new_procedure = st.selectbox(
                                     "Procedure",
                                     dental_data["treatment_procedures"],
@@ -379,15 +397,14 @@ def main():
                                     label_visibility="collapsed"
                                 )
 
-                            with cols[2]:
-                                # Status selector with current status pre-selected
-                                new_status = st.selectbox(
-                                    "Status",
-                                    ["Pending", "In Progress", "Completed"],
-                                    index=["Pending", "In Progress", "Completed"].index(row["Status"]),
-                                    key=f"status_{key_id}",
-                                    label_visibility="collapsed"
-                                )
+                            # with cols[3]:
+                            #     new_status = st.selectbox(
+                            #         "Status",
+                            #         ["Pending", "In Progress", "Completed"],
+                            #         index=["Pending", "In Progress", "Completed"].index(row["Status"]),
+                            #         key=f"status_{key_id}",
+                            #         label_visibility="collapsed"
+                            #     )
 
                             with cols[3]:
                                 # Individual start date for each procedure
@@ -406,19 +423,7 @@ def main():
                                     label_visibility="collapsed"
                                 )
 
-                            # with cols[4]:
-                                # Duration control for treatment length
-                                # new_duration = st.number_input(
-                                #     "Duration",
-                                #     min_value=1,
-                                #     value=int(row.get("Duration", 7)),
-                                #     step=1,
-                                #     key=f"duration_{key_id}",
-                                #     label_visibility="collapsed"
-                                # )
-
                             with cols[4]:
-                                # Action selector - keep (✓) or delete (✗) the procedure
                                 delete_item = st.selectbox(
                                     "Action",
                                     ["✓", "✗"],
@@ -482,15 +487,18 @@ def main():
                     schedule_df = pd.DataFrame(st.session_state.treatment_record)
 
                     if not schedule_df.empty:
+                        # Reset index to start from 1 instead of 0
+                        schedule_df.index = range(1, len(schedule_df) + 1)
+
                         # Format dates for better readability
                         if "Start Date" in schedule_df.columns:
                             schedule_df["Start Date"] = schedule_df["Start Date"].apply(format_date)
+
                         # if "End Date" in schedule_df.columns:
                         #     schedule_df["End Date"] = schedule_df["End Date"].apply(format_date)
 
                         # Ensure all required columns exist, fill with defaults if missing
-                        # display_cols = ["Tooth", "Procedure", "Status", "Start Date", "End Date"]
-                        display_cols = ["Tooth", "Procedure", "Status", "Start Date"]
+                        display_cols = ["Tooth", "Condition", "Procedure", "Start Date"]
                         for col in display_cols:
                             if col not in schedule_df.columns:
                                 schedule_df[col] = "N/A"
@@ -500,25 +508,137 @@ def main():
                 st.info("No procedures have been added to the treatment plan yet")
 
         # Tab 2: Dental Imaging
-        # with tab2:
-        #     st.header("Dental Imaging")
-        #     st.info("NOTE: Uploading multiple images is not supported yet", icon="📢")
+        with tab2:
+            st.header("Dental Imaging")
+            configure_cloudinary()
 
-        #     # X-ray image upload functionality
-        #     image_file = st.file_uploader("Upload X-Ray Image", type=["jpg", "png", "jpeg"], key="xray_upload")
-        #     image_path = None
-        #     if image_file:
-        #         try:
-        #             file_extension = image_file.name.split(".")[-1].lower()
-        #             image_path = f"xray_{patient_info['name'] or 'unknown'}.{file_extension}"
-        #             with open(image_path, "wb") as file_handler:
-        #                 file_handler.write(image_file.getbuffer())
-        #             st.image(image_file, caption="Uploaded X-Ray Image", use_container_width=True)
-        #         except Exception as e:
-        #             st.error(f"Image Upload Error: {str(e)}")
+            def get_patient_xrays(doctor_email, file_id):
+                try:
+                    doctor_reference = database.collection("doctors").document(doctor_email)
+                    patient_document = doctor_reference.collection("patients").document(file_id)
+                    patient_data = patient_document.get().to_dict()
+                    return patient_data.get("xray_images", [])
+                except Exception as e:
+                    st.error(f"Error fetching X-rays: {str(e)}")
+                    return []
+
+            def save_xray_image(doctor_email, file_id, image_data):
+                try:
+                    doctor_reference = database.collection("doctors").document(doctor_email)
+                    patient_document = doctor_reference.collection("patients").document(file_id)
+
+                    # Get existing images or initialize empty list
+                    patient_data = patient_document.get().to_dict()
+                    xray_images = patient_data.get("xray_images", [])
+
+                    # Add new image data
+                    xray_images.append(image_data)
+
+                    # Update patient record
+                    patient_document.update({"xray_images": xray_images})
+                    return True
+                except Exception as e:
+                    st.error(f"Error saving X-ray data: {str(e)}")
+                    return False
+
+            # Function to delete X-ray from Cloudinary and patient record
+            def delete_xray_image(doctor_email, file_id, public_id, index):
+                try:
+                    # Delete from Cloudinary
+                    destroy(public_id)
+
+                    # Delete reference from patient record
+                    doctor_reference = database.collection("doctors").document(doctor_email)
+                    patient_document = doctor_reference.collection("patients").document(file_id)
+
+                    # Get existing images
+                    patient_data = patient_document.get().to_dict()
+                    xray_images = patient_data.get("xray_images", [])
+
+                    # Remove image at specified index
+                    if 0 <= index < len(xray_images):
+                        xray_images.pop(index)
+                        patient_document.update({"xray_images": xray_images})
+                        return True
+                    return False
+                except Exception as e:
+                    st.error(f"Error deleting X-ray: {str(e)}")
+                    return False
+
+            # Get patient's existing X-rays
+            doctor_email = st.session_state.doctor_email
+            file_id = patient_info["file_id"]
+            patient_xrays = get_patient_xrays(doctor_email, file_id)
+
+            # Display existing X-rays
+            if patient_xrays:
+                st.subheader("Existing X-Ray Images")
+
+                # Display images in a grid (3 columns)
+                cols = st.columns(3)
+                for i, xray in enumerate(patient_xrays):
+                    with cols[i % 3]:
+                        # Generate optimized URL with transformations if needed
+                        img_url, options = cloudinary_url(
+                            xray["public_id"],
+                            width=300,
+                            height=300,
+                            crop="fill",
+                            quality="auto",
+                            fetch_format="auto"
+                        )
+
+                        # Display image with caption
+                        st.image(img_url, caption=xray.get("caption", f"X-Ray {i+1}"))
+
+                        # Add delete button for each image
+                        if st.button("🗑️ Delete", key=f"delete_xray_{i}"):
+                            if delete_xray_image(doctor_email, file_id, xray["public_id"], i):
+                                st.success("X-Ray deleted successfully!")
+
+            # X-ray image upload functionality with Cloudinary
+            with st.container(border=True):
+                st.subheader("Upload New X-Ray")
+
+                # Image upload form
+                with st.form(key="xray_upload_form"):
+                    image_file = st.file_uploader("Choose X-Ray Image", type=["jpg", "png", "jpeg"], key="xray_upload")
+                    image_caption = st.text_input("Image Caption (Optional)", key="xray_caption")
+
+                    submit_upload = st.form_submit_button("Upload X-Ray Image", use_container_width=True)
+                    if submit_upload and image_file:
+                        try:
+                            # Create unique folder name with doctor email and patient file ID
+                            folder = f"dentistfriend/{doctor_email}/{file_id}"
+
+                            # Upload to Cloudinary
+                            upload_result = upload(
+                                image_file,
+                                folder=folder,
+                                resource_type="image",
+                                use_filename=True,
+                                unique_filename=True,
+                                tags=[doctor_email, file_id, patient_info["name"]]
+                            )
+
+                            # Store image metadata in patient record
+                            image_data = {
+                                "public_id": upload_result["public_id"],
+                                "url": upload_result["secure_url"],
+                                "created_at": upload_result["created_at"],
+                                "caption": image_caption or f"X-Ray for {patient_info['name']}",
+                                "format": upload_result["format"],
+                                "width": upload_result["width"],
+                                "height": upload_result["height"]
+                            }
+
+                            if save_xray_image(doctor_email, file_id, image_data):
+                                st.success("X-Ray uploaded successfully!")
+                        except Exception as e:
+                            st.error(f"Image Upload Error: {str(e)}")
 
         # Tab 3: Cost Summary
-        with tab2:
+        with tab3:
             st.header("Cost Summary")
             total_price = sum(item["Cost"] for item in st.session_state.treatment_record)
             discount_calculation = 0
@@ -531,6 +651,8 @@ def main():
 
                     st.write("**Procedure Cost Details:**")
                     procedure_details = cost_df[["Tooth", "Procedure", "Cost"]]
+                    # Reset index to start from 1 instead of 0
+                    procedure_details.index = range(1, len(procedure_details) + 1)
 
                     # Get currency symbol from doctor settings
                     currency_symbol = get_currency_symbol(doctor_settings.get("currency", "SAR"))
@@ -578,12 +700,16 @@ def main():
                         "Amount": amounts
                     }
                     summary_df = pd.DataFrame(cost_summary)
+                    summary_df.index = range(1, len(summary_df) + 1)
                     st.table(summary_df)
 
                     # PDF report generation - creates and downloads treatment plan as PDF
                     if st.button("📄 Generate Treatment Report", use_container_width=True, key="generate_report"):
                         try:
-                            # Generate PDF report with treatment details and cost summary
+                            # Get patient's X-ray images
+                            patient_xrays = get_patient_xrays(doctor_email, file_id)
+
+                            # Generate PDF report with treatment details, cost summary and X-rays
                             pdf_path = generate_pdf(
                                 st.session_state.get("doctor_name", "Doctor"),
                                 patient_info["name"] or "Unknown Patient",
@@ -592,7 +718,7 @@ def main():
                                 discount_calculation,
                                 tax_calculation,
                                 total_price,
-                                # image_path
+                                patient_xrays
                             )
 
                             # Read generated PDF for download
@@ -611,8 +737,8 @@ def main():
                             )
 
                             st.success(f"Treatment report generated successfully: {file_name}")
-                        except Exception as error_message:
-                            st.error(f"Report Generation Error: {error_message}")
+                        except Exception as e:
+                            st.error(f"Report Generation Error: {e}")
                 else:
                     st.info("No procedures have been added to the treatment plan yet")
 
