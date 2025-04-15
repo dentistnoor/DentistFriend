@@ -10,7 +10,6 @@ from utils import format_date, show_footer
 
 load_dotenv()
 
-# Initialize Firestore database connection
 database = firestore.client()
 doctor_email = st.session_state["doctor_email"] if "doctor_email" in st.session_state else None
 stock_collection = database.collection("doctors").document(doctor_email).collection("stock") if doctor_email else None
@@ -24,7 +23,6 @@ def fetch_stock():
 
 def store_stock(item_name, item_quantity, expiry_date, low_threshold=5):
     """Store or update inventory item in Firestore database"""
-    # Check if item with same name and expiry date already exists
     item_doc = stock_collection.document(item_name).get()
     if item_doc.exists:
         st.warning(f"Item '{item_name.split('_')[0]}' with the same expiry date already exists. Please edit the existing item instead.")
@@ -55,47 +53,200 @@ def modify_stock(item_name, quantity_remove):
         st.session_state.inventory_data = fetch_stock()
 
 
+def import_inventory(file):
+    """Process imported CSV or Excel file and add items to inventory"""
+    try:
+        # Determine file type and read accordingly
+        if file.name.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif file.name.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(file)
+        else:
+            return False, "Unsupported file format. Please upload a CSV or Excel file."
+
+        # Check if the file has the required columns
+        required_columns = ["Item", "Quantity", "Expiry Date", "Low Threshold"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+
+        if missing_columns:
+            return False, f"Missing required columns: {', '.join(missing_columns)}"
+
+        # Process each row and add to inventory
+        success_count = 0
+        error_count = 0
+        errors = []
+
+        for index, row in df.iterrows():
+            try:
+                # Extract values and convert to appropriate types
+                item_name = str(row["Item"]).strip().lower()
+                quantity = int(row["Quantity"])
+
+                expiry_date = row["Expiry Date"]
+                if isinstance(expiry_date, str):
+                    try:
+                        # Standard format "Month DD, YYYY"
+                        expiry_date = datetime.strptime(expiry_date, "%B %d, %Y").strftime("%Y-%m-%d")
+                    except ValueError:
+                        errors.append(f"Row {index+1}: Invalid date format for {item_name}. Use 'Month DD, YYYY' format.")
+                        error_count += 1
+                        continue
+                else:
+                    # Convert pandas timestamp to string format
+                    expiry_date = pd.Timestamp(expiry_date).strftime("%Y-%m-%d")
+
+                # Get low threshold from the required column
+                try:
+                    low_threshold = int(row["Low Threshold"])
+                    if low_threshold < 1:
+                        errors.append(f"Row {index+1}: Low Threshold must be at least 1 for {item_name}")
+                        error_count += 1
+                        continue
+                except (ValueError, TypeError):
+                    errors.append(f"Row {index+1}: Invalid Low Threshold value for {item_name}")
+                    error_count += 1
+                    continue
+                
+                # Generate a unique item ID based on name and expiry date
+                item_id = f"{item_name}_{expiry_date}"
+
+                # Add item to inventory
+                success = store_stock(item_id, quantity, expiry_date, low_threshold)
+                if success:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"Row {index+1}: Item '{item_name}' with expiry date {expiry_date} already exists")
+
+            except Exception as e:
+                error_count += 1
+                errors.append(f"Row {index+1}: {str(e)}")
+
+        # Return import results
+        if error_count == 0:
+            return True, f"Successfully imported {success_count} items."
+        else:
+            error_details = "\n".join(errors[:5])  # Show first 5 errors
+            if len(errors) > 5:
+                error_details += f"\n...and {len(errors) - 5} more errors."
+            return success_count > 0, f"Imported {success_count} items with {error_count} errors.\n{error_details}"
+
+    except Exception as e:
+        return False, f"Error processing file: {str(e)}"
+
+
 def send_alert(email, expiry_items, days_threshold):
     """Send email alert for items nearing expiry"""
-    # Get email credentials from environment variables
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
-        return "Email credentials not found in environment variables"
+    current_date = datetime.now().strftime("%B %d, %Y")
+    # Sort items by days left (most urgent first)
+    expiry_items = sorted(expiry_items, key=lambda x: x['Days Left'])
 
-    # Format items for email content
-    items_list = "\n".join([f"- {item['Item']}: {item['Quantity']} units, expires in {item['Days Left']} days ({item['Expiry Date']})"
-                           for item in expiry_items])
+    # Generate HTML table rows for items
+    items_html = ""
+    for item in expiry_items:
+        if item['Days Left'] <= 7:
+            row_color = "#FFCCCC"  # Light red for very urgent
+        elif item['Days Left'] <= 14:
+            row_color = "#FFEEBB"  # Light yellow for urgent
+        else:
+            row_color = "#FFFFFF"  # White for normal
 
-    # Prepare email content
-    subject = f"Dental Supply Alert: Items Expiring Within {days_threshold} Days"
-    body = f"""
+        items_html += f"""
+        <tr style="background-color: {row_color};">
+            <td style="padding: 8px; border: 1px solid #ddd;">{item['Item']}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{item['Quantity']}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{item['Expiry Date']}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">{item['Days Left']}</td>
+        </tr>
+        """
+
+    # Prepare HTML email content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dentist Friend - Dental Supply Alert</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #2c3e50; color: white; padding: 15px; border-radius: 5px 5px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Dental Supply Alert</h1>
+            <p style="margin: 5px 0 0 0; font-size: 14px;">{current_date}</p>
+        </div>
+
+        <div style="background-color: #f9f9f9; padding: 20px; border-left: 1px solid #ddd; border-right: 1px solid #ddd;">
+            <p>Hello Dr. {st.session_state['doctor_name']},</p>
+            <p>The following items in your inventory are <strong>expiring within {days_threshold} days</strong>:</p>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background-color: white;">
+                <thead>
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Item</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Expiry Date</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Days Left</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items_html}
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border-left: 4px solid #3498db;">
+                <p style="margin: 0; font-size: 15px;">Please review these items and take appropriate action to avoid supply shortages.</p>
+            </div>
+        </div>
+
+        <div style="background-color: #ecf0f1; padding: 15px; font-size: 13px; text-align: center; border-radius: 0 0 5px 5px;">
+            <p style="margin: 0;">This is an automated message from your Dentist Friend.</p>
+            <p style="margin: 5px 0 0 0;">Please do not reply to this email.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Create a MIME message
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = f"Dental Supply Alert: Items Expiring Within {days_threshold} Days"
+    message["From"] = ADMIN_EMAIL
+    message["To"] = email
+
+    # Create plain text version of the email
+    plain_text = f"""
 Hello,
 
-This is an automated alert from your Dental Supply Tracker.
+This is an automated alert from your Dentist Friend.
 
 The following items in your inventory are expiring within {days_threshold} days:
 
-{items_list}
+"""
+    # Add items to plain text separately to avoid backslash issues
+    for item in expiry_items:
+        plain_text += f"- {item['Item']}: {item['Quantity']} units, expires in {item['Days Left']} days ({item['Expiry Date']})\n"
 
+    plain_text += """
 Please review these items and take appropriate action.
 
 Regards,
-Dental Supply Tracker
+Dentist Friend
 """
-    full_message = f"Subject: {subject}\n\n{body}"
+
+    # Attach both plaintext and HTML versions
+    message.attach(MIMEText(plain_text, "plain"))
+    message.attach(MIMEText(html_content, "html"))
 
     try:
-        # Connect to Gmail SMTP server
         server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()  # Enable encryption
+        server.starttls()
         server.login(user=ADMIN_EMAIL, password=ADMIN_PASSWORD)
-
-        # Send alert email to specified email address
-        server.sendmail(from_addr=ADMIN_EMAIL, to_addrs=email, msg=full_message)
-
-        # Close the connection
+        server.sendmail(from_addr=ADMIN_EMAIL, to_addrs=email, msg=message.as_string())
         server.quit()
         return "Email alert sent successfully"
     except Exception as e:
@@ -109,6 +260,11 @@ def main():
     if st.session_state.get("doctor_email") is None:
         st.error("Doctor Authentication Required: Please log in to access the inventory system")
         return
+
+    with st.sidebar:
+        if st.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
 
     # Initialize inventory data in session state if not already present
     if 'inventory_data' not in st.session_state:
@@ -154,19 +310,46 @@ def display_inventory():
             st.subheader("Edit Inventory", divider="orange")
             edit_inventory()
 
-    # with st.container(border=True):
-    #     st.subheader("Import Inventory", divider="green")
+    with st.container(border=True):
+        st.subheader("Import Inventory", divider="green")
 
-    #     # Excel file uploader
-    #     uploaded_file = st.file_uploader(
-    #         "Upload Excel File",
-    #         type=['csv', 'xlsx'],
-    #         help="Upload a CSV or Excel file containing inventory data",
-    #     )
+        # Excel file uploader
+        uploaded_file = st.file_uploader(
+            "Upload CSV or Excel File",
+            type=['csv', 'xlsx', 'xls'],
+            help="Upload a CSV or Excel file containing inventory data."
+        )
 
-    #     # Import button
-    #     if st.button("🔼 Import Excel", use_container_width=True):
-    #         st.info("Excel import functionality will be implemented soon.")
+        if uploaded_file:
+            st.info(f"File '{uploaded_file.name}' uploaded. Click 'Import Data' to process it.")
+
+            # Display a sample of the uploaded file
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df_preview = pd.read_csv(uploaded_file, nrows=5)
+                    uploaded_file.seek(0)  # Reset file pointer after reading
+                else:  # Excel file
+                    df_preview = pd.read_excel(uploaded_file, nrows=5)
+                    uploaded_file.seek(0)  # Reset file pointer after reading
+
+                st.write("Preview of uploaded data: (first 5 rows)")
+                st.dataframe(df_preview, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error previewing file: {str(e)}")
+
+        # Import button
+        if st.button("🔼 Import Data", use_container_width=True) and uploaded_file:
+            with st.spinner("Importing data..."):
+                success, message = import_inventory(uploaded_file)
+                if success:
+                    st.success(message)
+                    # Force refresh of inventory data
+                    st.session_state.inventory_data = fetch_stock()
+                    # Reset email sent flag when adding new items that might trigger alerts
+                    st.session_state["email_alert_sent"] = False
+                    st.rerun()
+                else:
+                    st.error(message)
 
 
 def display_alerts():
@@ -212,7 +395,7 @@ def display_alerts():
                     item_name = item_id.split('_')[0] if '_' in item_id else item_id
                     expiry_date = details["expiry_date"]
                     low_stock_items.append({
-                        "Item": item_name.capitalize(),
+                        "Item": item_name.title(),
                         "Quantity": details["quantity"],
                         "Threshold": item_threshold,
                         "Expiry Date": format_date(expiry_date)
@@ -258,7 +441,7 @@ def display_alerts():
                         # Extract base name from item
                         item_name = item.split('_')[0] if '_' in item else item
                         expiry_items.append({
-                            "Item": item_name.capitalize(),
+                            "Item": item_name.title(),
                             "Quantity": details["quantity"],
                             "Expiry Date": format_date(details["expiry_date"]),
                             "Days Left": days_until_expiry
@@ -400,12 +583,28 @@ def display_reports():
     inventory_data = st.session_state.inventory_data
 
     if inventory_data:
-        # First show visualizations
-        st.subheader("Inventory Visualizations", divider="green")
-
         # Prepare data for visualization
         today = datetime.today().date()
         inventory_records = []
+
+        st.subheader("Summary Statistics", divider="blue")
+
+        # Calculate total items, units, and items expiring soon
+        total_items = len(inventory_data)
+        total_units = sum(item["quantity"] for item in inventory_data.values())
+        expiring_soon = sum(1 for item, details in inventory_data.items()
+                            if (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days <= 30)
+
+        # Create metrics row
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        with metric_col1:
+            st.metric("Total Items", total_items)
+        with metric_col2:
+            st.metric("Total Units", total_units)
+        with metric_col3:
+            st.metric("Expiring Soon (30 days)", expiring_soon)
+
+        st.subheader("Inventory Visualizations", divider="green")
 
         for item_id, details in inventory_data.items():
             # Extract base name from item_id
@@ -418,11 +617,10 @@ def display_reports():
 
             # Create display name for charts
             display_name = f"{item_name} ({formatted_date})"
-
             days_until_expiry = (expiry_date - today).days
 
             inventory_records.append({
-                "Item": item_name,  # Base name for grouping
+                "Item": item_name.title(),  # Base name for grouping
                 "Display Name": display_name,  # Formatted name with date
                 "Quantity": details["quantity"],
                 "Days Until Expiry": days_until_expiry
@@ -486,24 +684,6 @@ def display_reports():
 
             st.plotly_chart(fig3, use_container_width=True)
 
-        # Then summary statistics
-        st.subheader("Summary Statistics", divider="blue")
-
-        # Calculate total items, units, and items expiring soon
-        total_items = len(inventory_data)
-        total_units = sum(item["quantity"] for item in inventory_data.values())
-        expiring_soon = sum(1 for item, details in inventory_data.items()
-                            if (datetime.strptime(details["expiry_date"], "%Y-%m-%d").date() - today).days <= 30)
-
-        # Create metrics row
-        metric_col1, metric_col2, metric_col3 = st.columns(3)
-        with metric_col1:
-            st.metric("Total Items", total_items)
-        with metric_col2:
-            st.metric("Total Units", total_units)
-        with metric_col3:
-            st.metric("Expiring Soon (30 days)", expiring_soon)
-
         # Generate inventory records for export
         if 'inventory_records' in st.session_state:
             report_df = pd.DataFrame(st.session_state.inventory_records)
@@ -511,9 +691,20 @@ def display_reports():
             # Export options
             st.subheader("Export Options", divider="blue")
 
+            export_df = report_df.copy()
+            export_df['Low Threshold'] = [st.session_state.inventory_data.get(item_id, {}).get('low_threshold', 5) 
+                                          for item_id in report_df['ID']]
+
+            if 'ID' in export_df.columns:
+                export_df = export_df.drop(columns=['ID'])
+
+            if 'Status' in export_df.columns:
+                # Remove emoji characters from Status (🚨, ⚠️, ❌)
+                export_df['Status'] = export_df['Status'].str.replace(r'[^\w\s]', '', regex=True).str.strip()
+
             export_col1, export_col2 = st.columns(2)
             with export_col1:
-                csv = report_df.to_csv(index=False)
+                csv = export_df.to_csv(index=False)
                 st.download_button(
                     label="📄 Download CSV Report",
                     data=csv,
@@ -523,7 +714,7 @@ def display_reports():
                 )
 
             with export_col2:
-                json_data = report_df.to_json(orient="records")
+                json_data = export_df.to_json(orient="records")
                 st.download_button(
                     label="📄 Download JSON Report",
                     data=json_data,
@@ -567,7 +758,7 @@ def show_inventory():
                 status = "❌ Out of Stock"
 
             st.session_state.inventory_records.append({
-                "Item": item_name.capitalize(),
+                "Item": item_name.title(),
                 "Quantity": details["quantity"],
                 "Expiry Date": format_date(details["expiry_date"]),
                 "Days Until Expiry": days_until_expiry,
@@ -716,52 +907,43 @@ def add_items():
 
 def edit_inventory():
     """Edit or remove items from inventory"""
-    base_item_name = st.text_input("Item to Edit", placeholder="Enter item name to edit").strip().lower()
+    search_term = st.text_input("Item to Edit", placeholder="Enter item name to edit").strip().lower()
     find_edit_button = st.button("🔍 Find Item", use_container_width=True)
 
     # Track if we're in search mode or edit mode
     if "edit_search_mode" not in st.session_state:
         st.session_state.edit_search_mode = False
 
-    # Start search when button is clicked
-    if base_item_name and find_edit_button:
+    if search_term and find_edit_button:
         # Clear previous selections when searching for a new item
         st.session_state.pop("edit_item_id", None)
         st.session_state.pop("matching_items", None)
         st.session_state.edit_search_mode = True
 
-        # Find all items that start with the base name
+        # Find all items that contain the search term (partial match)
         matching_items = {}
         for item_id, details in st.session_state.inventory_data.items():
             # Extract the base name from the item_id (removing the _date suffix)
-            if '_' in item_id:
-                name_part = item_id.split('_')[0]
-                if name_part == base_item_name:
-                    # Add to matching items with expiry date as key info
-                    matching_items[item_id] = {
-                        "name": name_part,
-                        "expiry_date": details["expiry_date"],
-                        "quantity": details["quantity"],
-                        "low_threshold": details.get("low_threshold", 5)
-                    }
-            elif item_id == base_item_name:
-                # Handle items without expiry date in ID (legacy format)
+            name_part = item_id.split('_')[0] if '_' in item_id else item_id
+            
+            # Check if search term appears anywhere in the name (partial match)
+            if search_term in name_part:
+                # Add to matching items with expiry date as key info
                 matching_items[item_id] = {
-                    "name": item_id,
+                    "name": name_part,
                     "expiry_date": details["expiry_date"],
                     "quantity": details["quantity"],
                     "low_threshold": details.get("low_threshold", 5)
                 }
 
-        # No items found
         if not matching_items:
-            st.error(f"Item Not Found: '{base_item_name}' does not exist in inventory")
+            st.error(f"Item Not Found: No items containing '{search_term}' found in inventory")
             st.session_state.edit_search_mode = False
             return
 
         # Store matching items in session state to access them after rerun
         st.session_state.matching_items = matching_items
-        st.session_state.search_term = base_item_name
+        st.session_state.search_term = search_term
 
     # Check if we have matching items from a previous search
     if st.session_state.get("edit_search_mode") and "matching_items" in st.session_state:
@@ -797,7 +979,6 @@ def edit_inventory():
         if edit_item and edit_item in st.session_state.inventory_data:
             handle_item_editing(edit_item)
         elif "edit_item_id" in st.session_state:
-            # Item no longer exists (probably deleted)
             st.error("The selected item no longer exists in the inventory.")
             st.session_state.edit_search_mode = False
             st.session_state.pop("edit_item_id", None)
