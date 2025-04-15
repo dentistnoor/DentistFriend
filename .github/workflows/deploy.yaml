@@ -1,4 +1,4 @@
-name: Deploy to Docker Hub
+name: Deploy to DigitalOcean
 
 on:
   push:
@@ -6,10 +6,11 @@ on:
       - main
     paths:
       - '.github/**'
-      - 'instructions/**'
-      - 'metadata/**'
-      - 'server/**'
-      - 'tests/**'
+      - '.streamlit/**'
+      - 'app/**'
+      - 'assets/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
   workflow_dispatch:
 
 jobs:
@@ -20,6 +21,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create firebase-config file
+        run: |
+          echo '${{ secrets.FIREBASE_CONFIG }}' > firebase-config.json
+
+      - name: Create .env file
+        run: |
+          echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" > .env
+          echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> .env
+          echo "FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> .env
+          echo "CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}" >> .env
+          echo "CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}" >> .env
+          echo "CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}" >> .env
+
       - name: Build & push Docker image
         uses: mr-smithers-excellent/docker-build-push@v6
         with:
@@ -28,3 +42,10 @@ jobs:
           registry: docker.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Trigger DigitalOcean Deployment
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.DO_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://api.digitalocean.com/v2/apps/31ccb161-5b1e-4e6f-b4fc-8b5310e87172/deployments"
