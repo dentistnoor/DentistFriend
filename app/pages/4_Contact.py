@@ -4,7 +4,6 @@ import streamlit as st
 from dotenv import load_dotenv
 from utils import show_footer
 
-# Load environment variables from .env file
 load_dotenv()
 
 
@@ -12,12 +11,15 @@ def contact_us():
     st.markdown("# Contact Us")
     st.divider()
 
-    # Create form for contact submission
+    with st.sidebar:
+        if st.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+
     with st.form("contact_form"):
         st.subheader("📬Let's get in touch!")
         col1, col2 = st.columns(2)
 
-        # Split name and email inputs into two columns for better layout
         with col1:
             name = st.text_input("Your Name")
 
@@ -29,7 +31,6 @@ def contact_us():
 
         # Form submission button and validation
         if st.form_submit_button("📤 Submit", use_container_width=True):
-            # Validate that all fields are filled
             if not name or not email or not message:
                 st.warning("Please fill in all the fields", icon="⚠️")
             else:

@@ -16,7 +16,11 @@ def main():
         st.error("Doctor Authentication Required: Please log in to access settings")
         return
 
-    # Initialize Firestore database client and retrieve doctor information
+    with st.sidebar:
+        if st.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+
     database = firestore.client()
     doctor_email = st.session_state.get("doctor_email")
     doctor_settings = load_settings(database, doctor_email)
@@ -71,54 +75,85 @@ def show_treatments(database, doctor_email, doctor_settings):
     st.header("Treatment Procedures Configuration")
     st.info("Manage your treatment procedures and their associated prices")
 
-    # Get current currency symbol for display
-    currency_symbol = get_currency_symbol(doctor_settings.get("currency", "SAR"))
-
     # Extract current procedures and prices from settings
     procedures = doctor_settings.get("treatment_procedures", [])
     prices = doctor_settings.get("price_estimates", {})
 
-    # Treatment procedures section
-    st.subheader("Treatment Procedures")
-    with st.container(border=True):
-        if procedures:
-            to_delete = []
+    # Display existing procedures with their prices
+    if procedures:
+        for i, procedure in enumerate(procedures):
+            cols = st.columns([4, 3, 1])
+            with cols[0]:
+                st.text(f"Procedure {i+1}")
+                new_name = st.text_input(
+                    "",
+                    value=procedure, 
+                    key=f"procedure_{i}",
+                    label_visibility="collapsed"
+                ).title()
+                procedures[i] = new_name
 
-            # Display existing procedures with option to edit or delete
-            for i, procedure in enumerate(procedures):
-                cols = st.columns([4, 1])
-                with cols[0]:
-                    new_name = st.text_input(f"Procedure {i+1}", value=procedure, key=f"procedure_{i}").title()
-                    procedures[i] = new_name
-                with cols[1]:
-                    if st.button("❌", key=f"delete_procedure_{i}"):
-                        to_delete.append(i)
+            with cols[1]:
+                st.text(f"Price ({doctor_settings.get('currency', 'SAR')})")
+                price = prices.get(procedure, 0)
+                new_price = st.number_input(
+                    "",
+                    min_value=0.0,
+                    value=float(price),
+                    step=10.0,
+                    format="%.2f",
+                    key=f"price_{procedure}",
+                    label_visibility="collapsed"
+                )
+                if new_price != price:
+                    prices[procedure] = new_price
 
-            # Handle procedure deletion
-            if to_delete:
-                for index in sorted(to_delete, reverse=True):
-                    procedure_name = procedures[index]
-                    procedures.pop(index)
-                    if procedure_name in prices:
-                        prices.pop(procedure_name)
+            with cols[2]:
+                if st.button("❌", key=f"delete_procedure_{i}"):
+                    procedures.pop(i)
+                    if procedure in prices:
+                        prices.pop(procedure)
 
-                # Update settings and save to database
-                doctor_settings["treatment_procedures"] = procedures
-                doctor_settings["price_estimates"] = prices
-                save_settings(database, doctor_email, doctor_settings)
-                st.success("Treatment procedures have been successfully updated")
-                st.rerun()
-        else:
-            st.caption("No procedures added yet.")
+                    # Update settings and save to database
+                    doctor_settings["treatment_procedures"] = procedures
+                    doctor_settings["price_estimates"] = prices
+                    save_settings(database, doctor_email, doctor_settings)
+                    st.success("Treatment procedure removed successfully")
+                    st.rerun()
+    else:
+        st.caption("No procedures added yet.")
 
-        # Add new procedure input
-        new_procedure = st.text_input("Add New Procedure", key="new_procedure").title()
-        if st.button("➕ Add Procedure", use_container_width=True):
+    # Add new procedure section
+    with st.expander("Add New Procedure", expanded=True):
+        st.subheader("Create a New Procedure")
+
+        cols = st.columns([1, 1])
+        with cols[0]:
+            st.text("Procedure Name")
+            new_procedure = st.text_input(
+                "",
+                key="new_procedure",
+                label_visibility="collapsed"
+            ).title()
+
+        with cols[1]:
+            st.text(f"Price ({doctor_settings.get('currency', 'SAR')})")
+            new_price = st.number_input(
+                "",
+                min_value=0.0,
+                value=0.0,
+                step=10.0,
+                format="%.2f",
+                key="new_procedure_price",
+                label_visibility="collapsed"
+            )
+
+        if st.button("Save Procedure", use_container_width=True):
             if new_procedure:
                 # Check if procedure already exists to avoid duplicates
                 if new_procedure not in procedures:
                     procedures.append(new_procedure)
-                    prices[new_procedure] = 0
+                    prices[new_procedure] = new_price
                     doctor_settings["treatment_procedures"] = procedures
                     doctor_settings["price_estimates"] = prices
                     save_settings(database, doctor_email, doctor_settings)
@@ -126,33 +161,8 @@ def show_treatments(database, doctor_email, doctor_settings):
                     st.rerun()
                 else:
                     st.error("This procedure already exists in your list")
-
-    # Price estimates section
-    st.subheader(f"Price Estimates (in {currency_symbol})")
-    with st.container(border=True):
-        if procedures:
-            # Display price input fields for each procedure
-            for procedure in procedures:
-                old_price = prices.get(procedure, 0)
-                new_price = st.number_input(
-                    f"Price for {procedure}",
-                    min_value=0.0,
-                    value=float(old_price),
-                    step=10.0,
-                    format="%.2f",
-                    key=f"price_{procedure}"
-                )
-
-                if new_price != old_price:
-                    prices[procedure] = new_price
-
-            # Save updated prices to database
-            if st.button("✔️ Save Price", use_container_width=True):
-                doctor_settings["price_estimates"] = prices
-                save_settings(database, doctor_email, doctor_settings)
-                st.success("Price estimates have been successfully updated")
-        else:
-            st.caption("Add procedures first to set prices.")
+            else:
+                st.error("Please enter a procedure name")
 
 
 def show_chart():
@@ -202,7 +212,6 @@ def show_chart():
         else:
             st.caption("No health conditions available.")
 
-    # Future enhancement section
     st.subheader("Dental Chart Customization")
     st.error("NOTE: Additional customization options are under development", icon="⏳")
 
@@ -212,10 +221,7 @@ def show_currency(database, doctor_email, doctor_settings):
     st.header("Currency Settings")
     st.info("Set your preferred currency for price estimates")
 
-    # Get current currency from settings
     current_currency = doctor_settings.get("currency", "SAR")
-
-    # Currency options
     currency_options = {
         "SAR": "Saudi Riyal (SAR)",
         "INR": "Indian Rupee (₹)"
