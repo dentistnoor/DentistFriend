@@ -1,8 +1,11 @@
+import os
 import hashlib
+import requests
 import datetime
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from dotenv import load_dotenv
 from utils import show_footer
 
 # Configure Streamlit page settings
@@ -12,6 +15,9 @@ st.set_page_config(
     layout="wide",
     # initial_sidebar_state="collapsed"
 )
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize Firebase
 if not firebase_admin._apps:
@@ -29,7 +35,6 @@ def main():
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
 
-    # Display content based on login status
     if st.session_state["logged_in"]:
         # Logged-in user view
         current_date = datetime.datetime.now()
@@ -51,17 +56,17 @@ def main():
                 st.session_state.clear()  # Clear session state on logout
                 st.rerun()  # Refresh the app
 
-        # with col2:
-        #     if st.button("Reset Password", icon="🔄", use_container_width=True):
-        #         reset_password()
+        with col2:
+            if st.button("Reset Password", icon="🔄", use_container_width=True):
+                reset_password()
 
-        # with col3:
-        #     if st.button("Reset Email", icon="📧", use_container_width=True):
-        #         reset_email()
+        with col3:
+            if st.button("Reset Email", icon="📧", use_container_width=True):
+                reset_email()
 
-        # with col4:
-        #     if st.button("Delete Account", icon="🗑️", use_container_width=True):
-        #         delete_account()
+        with col4:
+            if st.button("Delete Account", icon="🗑️", use_container_width=True):
+                delete_account()
 
         # Support section
         # st.divider()
@@ -74,17 +79,18 @@ def main():
         # Non-logged in user view
         # Create two columns for description and login
         desc_col, auth_col = st.columns([1, 1])
-        
+
         with desc_col:
             show_info()
-            
+
         with auth_col:
             tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
+
             with tab1:
                 sign_in()
+
             with tab2:
                 sign_up()
-
 
         # Support section
         # st.divider()
@@ -103,15 +109,14 @@ def show_info():
             """
             ## What is Dentist Friend?
 
-            Dentist Friend is a comprehensive dental practice management solution that streamlines 
+            Dentist Friend is a comprehensive dental practice management solution that streamlines
             patient treatment, inventory management, and communication for efficient clinic operations.
 
             ### Key Features
-            - **Patient Management:** Register new patients, search for existing patients, and manage
-            detailed treatment plans, including dental chart assessments, treatment procedures,
-            cost summaries, scheduling, and PDF generation.
-            - **Inventory Management:** Add, remove, and modify inventory items with alerts for low stock
-            and expiring items.
+            - **Patient Management**:  Register patients, search records, and manage treatments with dental charts, procedures,
+            cost summaries, and PDF export.
+
+            - **Inventory Management**: Add, remove, and modify inventory items with alerts for low stock and expiring items.
             """
         )
 
@@ -238,27 +243,31 @@ def sign_in():
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # with col2:
-    #     if st.button("Reset Password", icon="🔄", use_container_width=True):
-    #         reset_password()
+    with col2:
+        if st.button("Reset Password", icon="🔄", use_container_width=True):
+            reset_password()
 
 
 def reset_password():
     email = st.text_input("Enter your email")
+    api_key = os.getenv("FIREBASE_API_KEY")
+
     if st.button("Send Reset Email", icon="🔄", use_container_width=True):
         if not email:
             st.error("Please enter your email address.")
         else:
-            try:
-                action_code_settings = auth.ActionCodeSettings(
-                    url="https://identitytoolkit.googleapis.com/v1",
-                )
-                auth.generate_password_reset_link(email, action_code_settings)
-                st.success("Password reset email sent. Check your inbox.")
-            except firebase_admin.auth.UserNotFoundError:
-                st.error("Email not found.")
-            except Exception as e:
-                st.error(f"Error: {e}")
+            endpoint = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={api_key}"
+            payload = {
+                "requestType": "PASSWORD_RESET",
+                "email": email
+            }
+
+            response = requests.post(endpoint, json=payload)
+            if response.status_code == 200:
+                st.success(f"Password reset email sent to {email}.")
+            else:
+                error_info = response.json().get("error", {}).get("message", "Unknown error")
+                st.error(f"Failed to send reset email: {error_info}")
 
 
 def reset_email():
