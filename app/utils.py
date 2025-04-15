@@ -1,8 +1,13 @@
 import os
+import cloudinary
+import requests
+import tempfile
 import streamlit as st
 from datetime import datetime
 from fpdf import FPDF
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def format_date(date_str):
     """Convert date string to formatted date (e.g., '2021-12-31' -> 'December 31, 2021')"""
@@ -34,104 +39,151 @@ def show_footer():
     )
 
 
-def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR", discount=0, vat=0, total_cost=0, xray_image_path=None):
-    """Generate a PDF document with treatment plan details"""
-    pdf = FPDF(orientation="P", unit="mm", format="A4")  # Initialize PDF
-    pdf.add_page()  # Add a new page to the PDF
+def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR", discount=0, vat=0, total_cost=0, xray_images=None):
+    """Generate a PDF document with treatment plan details and X-ray images"""
 
-    # This prevents encoding errors with Unicode characters
+    # Initialize PDF with margins
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_margins(left=15, top=15, right=15)
+
     if currency_symbol == "₹":
         display_currency = "INR"
     else:
         display_currency = currency_symbol
 
-    # Set up document title and date
+    pdf.add_page()
+
+    # Document title
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, "C")
 
+    # Date on top right
     pdf.set_font("Arial", "", 10)
     current_date = datetime.now().strftime("%B %d, %Y")
     pdf.cell(0, 6, f"Date: {current_date}", 0, 1, "R")
 
-    # Add patient information section
+    # Patient information section with better spacing
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Patient Information", 0, 1, "L")
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
+    pdf.cell(0, 8, "Patient Information", 0, 1, "L")
+    pdf.set_draw_color(100, 100, 100)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(5)
 
-    # Add patient and doctor details
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 8, f"Treating Dentist: {doctor_name}", 0, 1)
-    pdf.cell(0, 8, f"Patient Name: {patient_name}", 0, 1)
-    pdf.cell(0, 8, f"Report ID: {datetime.now().strftime('%Y%m%d%H%M')}", 0, 1)
+    # Patient and doctor details with better spacing
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 7, f"Dentist: {doctor_name}".title(), 0, 1)
+    pdf.cell(0, 7, f"Patient Name: {patient_name}".title(), 0, 1)
+    report_id = datetime.now().strftime('%Y%m%d%H%M%S')
+    pdf.cell(0, 7, f"Report ID: {report_id}", 0, 1)
+    pdf.ln(5)
 
-    # Add X-ray image if available
-    if xray_image_path and os.path.exists(xray_image_path):
-        pdf.ln(5)
+    if xray_images and len(xray_images) > 0:
+        # Add a new page for X-rays if there's not enough space
+        if pdf.get_y() > 180:
+            pdf.add_page()
+
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "Dental X-Ray", 0, 1, "L")
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
+        pdf.cell(0, 8, "Dental X-Ray Images", 0, 1, "L")
+        pdf.set_draw_color(100, 100, 100)
+        pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+        pdf.ln(10)
 
-        try:
-            current_y = pdf.get_y()
-            if current_y > 200:  # Add new page if needed
-                pdf.add_page()
-                current_y = pdf.get_y()
+        # Determine grid layout based on number of images
+        images_per_row = 2
+        max_image_width = 80
+        max_image_height = 65
 
-            # Add X-ray image centered on page
-            pdf.image(xray_image_path, x=50, y=current_y, w=100)
-            pdf.ln(85)  # Add space after image
-        except Exception as e:
-            pdf.set_font("Arial", "", 10)
-            pdf.cell(0, 10, f"Error loading X-ray image: {str(e)}", 0, 1)
+        current_x = 15
+        current_y = pdf.get_y()
 
-    # Add treatment plan details section
-    pdf.ln(5)
+        for i, xray in enumerate(xray_images):
+            # Check if we need to move to next row or new page
+            if i > 0 and i % images_per_row == 0:
+                current_x = 15
+                current_y += max_image_height + 15  # Image height + padding
+
+                # Check if we need a new page
+                if current_y > 250:
+                    pdf.add_page()
+                    current_y = 15 + 10  # Top margin + padding
+
+            try:
+                # Create a temporary file for the image
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+                    temp_img_path = temp_file.name
+
+                # Download image from Cloudinary URL
+                response = requests.get(xray["url"], stream=True)
+                if response.status_code == 200:
+                    with open(temp_img_path, 'wb') as f:
+                        f.write(response.content)
+
+                    # Add image to PDF with balanced dimensions
+                    pdf.image(temp_img_path, x=current_x, y=current_y, w=max_image_width)
+
+                    # Add caption under the image
+                    caption_y = current_y + max_image_height - 10
+                    pdf.set_xy(current_x, caption_y)
+                    pdf.set_font("Arial", "", 8)
+                    pdf.multi_cell(max_image_width, 5, xray.get("caption", "X-Ray Image"), 0, 'C')
+
+                    # Clean up temporary file
+                    os.remove(temp_img_path)
+
+                    # Move x position for next image
+                    current_x += max_image_width + 15  # Image width + padding
+            except Exception as e:
+                pdf.set_font("Arial", "", 10)
+                pdf.set_xy(current_x, current_y)
+                pdf.multi_cell(max_image_width, 10, "Error loading image", 0, 'C')
+                current_x += max_image_width + 15
+
+    # Treatment plan details section with proper page break
+    pdf.add_page()
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Treatment Plan Details", 0, 1, "L")
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
+    pdf.cell(0, 8, "Treatment Plan Details", 0, 1, "L")
+    pdf.set_draw_color(100, 100, 100)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(5)
 
-    # Display treatments or message if no treatments
     if not treatment_plan:
-        pdf.set_font("Arial", "", 12)
+        pdf.set_font("Arial", "", 11)
         pdf.cell(0, 10, "No treatment procedures have been defined yet.", 0, 1)
     else:
         # Create treatment table with headers
         pdf.set_font("Arial", "B", 10)
-        pdf.set_fill_color(230, 230, 230)
+        pdf.set_fill_color(240, 240, 240)  # Lighter gray for header
 
-        # Define table structure and layout
-        # columns = ["Tooth", "Procedure", "Status", "Start Date", "End Date", "Cost"]
-        columns = ["Tooth", "Procedure", "Status", "Start Date", "Cost"]  # Removed "End Date"
-        # col_widths = [20, 50, 25, 35, 35, 25]
-        col_widths = [20, 50, 25, 35, 25]  # Removed width for "End Date"
+        # Define table structure with optimized widths
+        columns = ["Tooth", "Condition", "Procedure", "Start Date", "Cost"]
+        col_widths = [20, 35, 55, 35, 25]
 
+        # Filter available columns based on treatment plan data
         available_columns = []
         available_widths = []
 
-        # Filter available columns based on treatment plan
         for i, col in enumerate(columns):
-            if col in treatment_plan[0] or col == "Tooth" or col == "Procedure" or col == "Cost":
+            if col in treatment_plan[0] or col in ["Tooth", "Procedure", "Cost"]:
                 available_columns.append(col)
                 available_widths.append(col_widths[i])
-
-        # Adjust column widths to fit page
-        total_width = sum(available_widths)
-        if total_width < 190:
-            scale_factor = 190 / total_width
-            available_widths = [w * scale_factor for w in available_widths]
 
         # Create table header row
         for i, col in enumerate(available_columns):
             pdf.cell(available_widths[i], 10, col, 1, 0, "C", True)
         pdf.ln()
 
-        # Add treatment data rows
+        # Add treatment data rows with alternating colors
         pdf.set_font("Arial", "", 10)
-        for item in treatment_plan:
+        for idx, item in enumerate(treatment_plan):
+            # Alternate row colors
+            if idx % 2 == 1:
+                pdf.set_fill_color(245, 245, 245)
+                fill = True
+            else:
+                fill = False
+
             for i, col in enumerate(available_columns):
                 value = str(item.get(col, ""))
                 if col == "Cost" and value:
@@ -139,19 +191,22 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
                         value = f"{display_currency} {float(value):.2f}"
                     except ValueError:
                         pass
-                pdf.cell(available_widths[i], 8, value, 1, 0, "L")
+
+                # Align different columns appropriately
+                align = "R" if col == "Cost" else "L"
+                pdf.cell(available_widths[i], 8, value, 1, 0, align, fill)
+
             pdf.ln()
 
-    # Add cost summary section
-    pdf.ln(5)
+    # Add cost summary section with proper spacing
+    pdf.ln(10)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Cost Summary", 0, 1, "L")
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
+    pdf.cell(0, 8, "Cost Summary", 0, 1, "L")
+    pdf.set_draw_color(100, 100, 100)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(5)
 
-    pdf.set_font("Arial", "", 10)
-
-    # Calculate final cost with discount and VAT
+    # Calculate final cost
     final_cost = total_cost
     if isinstance(discount, (int, float)):
         final_cost -= discount
@@ -159,31 +214,38 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         final_cost += vat
 
     # Define column layout for cost table
-    col1_width = 100
-    col2_width = 40
+    col1_width = 120
+    col2_width = 50
 
-    # Create cost breakdown table
-    pdf.cell(col1_width, 8, "Total Treatment Cost", 1, 0)
-    pdf.cell(col2_width, 8, f"{display_currency} {float(total_cost):.2f}", 1, 1, "R")
+    # Create cost breakdown table with better styling
+    pdf.set_font("Arial", "", 10)
+    pdf.set_fill_color(245, 245, 245)
 
+    # Total row
+    pdf.cell(col1_width, 8, "Total Treatment Cost", 1, 0, "L", True)
+    pdf.cell(col2_width, 8, f"{display_currency} {float(total_cost):.2f}", 1, 1, "R", True)
+
+    # Discount row (if applicable)
     if discount > 0:
-        pdf.cell(col1_width, 8, "Discount", 1, 0)
+        pdf.cell(col1_width, 8, "Discount", 1, 0, "L")
         pdf.cell(col2_width, 8, f"-{display_currency} {float(discount):.2f}", 1, 1, "R")
 
+    # VAT row (if applicable)
     if vat > 0:
-        pdf.cell(col1_width, 8, "VAT (15%)", 1, 0)
+        pdf.cell(col1_width, 8, "VAT (15%)", 1, 0, "L")
         pdf.cell(col2_width, 8, f"+{display_currency} {float(vat):.2f}", 1, 1, "R")
 
-    # Highlight final total with bold text
+    # Final total row with highlighting
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(col1_width, 8, "Final Total", 1, 0)
-    pdf.cell(col2_width, 8, f"{display_currency} {float(final_cost):.2f}", 1, 1, "R")
+    pdf.set_fill_color(230, 230, 230)  # Darker highlight for total
+    pdf.cell(col1_width, 8, "Final Total", 1, 0, "L", True)
+    pdf.cell(col2_width, 8, f"{display_currency} {float(final_cost):.2f}", 1, 1, "R", True)
 
-    # Add footer with generation details
-    pdf.ln(10)
+    # Add footer with proper spacing
+    pdf.ln(15)
     pdf.set_font("Arial", "I", 8)
     generation_time = datetime.now()
-    pdf.cell(0, 5, "Generated by Denthic", 0, 1, "C")
+    pdf.cell(0, 5, "Generated by Dental Treatment Planner", 0, 1, "C")
     pdf.cell(0, 5, f"This report was generated on {generation_time.strftime('%B %d, %Y')} at {generation_time.strftime('%H:%M')}.", 0, 1, "C")
 
     # Generate filename and output PDF
@@ -228,7 +290,7 @@ def render_chart(dental_data, dental_chart=None):
         "Cavity": "#6C757D",   # Dark Gray
         "Implant": "#6C757D",  # Dark Gray
         "Extraction": "#774936", # Brown
-        "Root Canal": "#FFA500", # Orange
+        # "Root Canal": "#FFA500", # Orange
         "Fractured": "#9B2226",  # Dark Red
         "Filled": "#007BFF",   # Blue
         "Discolored": "#FFD700", # Gold
@@ -251,7 +313,6 @@ def render_chart(dental_data, dental_chart=None):
 
     st.header("Dental Chart Assessment")
 
-    # Container for the entire dental chart with border
     with st.container(border=True):
         # Process each row of teeth in the dental chart
         for teeth_row in teeth_rows:
@@ -325,3 +386,13 @@ def get_currency_symbol(currency_code):
         "INR": "₹"
     }
     return currency_symbols.get(currency_code, currency_code)
+
+
+def configure_cloudinary():
+    """Configure Cloudinary using environment variables"""
+    cloudinary.config(
+        cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+        api_key=os.getenv('CLOUDINARY_API_KEY'),
+        api_secret=os.getenv('CLOUDINARY_API_SECRET'),
+        secure=True
+    )
