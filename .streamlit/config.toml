@@ -1,10 +1,10 @@
 # https://docs.streamlit.io/develop/api-reference/configuration/config.toml
 
 [theme]
-base = "dark"
-primaryColor = "#5588ff"
-# backgroundColor = "#f5f8ff"
-# secondaryBackgroundColor = "#e0e9ff"
+primaryColor="#010826"
+backgroundColor="#d9e0fe"
+secondaryBackgroundColor="#f9fafb"
+textColor="#2f3828"
 font = "sans serif"
 
 [client]
