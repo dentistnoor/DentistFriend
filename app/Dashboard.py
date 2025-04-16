@@ -68,6 +68,10 @@ def main():
             if st.button("Delete Account", icon="🗑️", use_container_width=True):
                 delete_account()
 
+        # Privacy Policy section for logged-in users
+        st.divider()
+        show_privacy_policy()
+
         # Support section
         # st.divider()
         # show_support()
@@ -91,6 +95,10 @@ def main():
 
             with tab2:
                 sign_up()
+
+        # Privacy Policy section for non-logged in users
+        st.divider()
+        show_privacy_policy()
 
         # Support section
         # st.divider()
@@ -151,6 +159,104 @@ def show_team():
         st.markdown("**Student Developer, B.E CSE**")
         st.markdown("Dayananda Sagar College of Engineering, Bangaluru (2022-2026)")
         st.markdown("📧 Contact: [hi@areeb.cloud](mailto:hi@areeb.cloud)")
+
+
+def show_privacy_policy():
+    with st.expander("**Privacy Policy**"):
+        st.markdown("""
+        # Privacy Policy
+
+        Your privacy and security are of utmost importance to us. This policy describes how we collect and use information about you when you use Dentist Friend, including our application and website. If you are one of our customers, you should read this policy in conjunction with our Terms of Service.
+
+        ### 1. Who are we?
+
+        We are Dentist Friend, a dental practice management solution. The processing explained in this policy is carried out by Dentist Friend as the data controller. This means that we are responsible for deciding how we hold and use personal data about you.
+
+        ### 2. How do we collect your data?
+
+        We collect information about you when you:
+        - Create an account on our platform
+        - Input patient information into our system
+        - Use our inventory management features
+        - Contact our support team
+        - Fill in forms on our website
+
+        We strictly adhere to a data minimization approach and only collect information that is necessary for providing our services.
+
+        ### 3. What data do we collect?
+
+        We collect only essential information needed to provide our services:
+
+        **Personal data**: This includes information that identifies you, such as:
+        - Your name, clinic name, and contact details
+        - Login credentials
+        - Patient records you enter into our system
+        - Communication records when you interact with our support team
+
+        **Non-personal data**: We do not collect any additional non-personal data beyond what is strictly necessary for the application to function.
+
+        The data you submit should not include sensitive personal data beyond what is necessary for dental practice management.
+
+        ### 4. How do we use your data?
+
+        We use the information we collect to:
+        - Create and maintain your account
+        - Provide our dental practice management services
+        - Respond to support requests
+        - Communicate with you about our services
+        - Process payments if you subscribe to a paid plan
+        - Ensure compliance with applicable laws and regulations
+
+        We do not use your data for analytics, marketing research, or any purpose beyond providing the core functionality of our platform.
+
+        ### 5. What are our purposes and legal basis for collecting your personal data?
+
+        We collect your personal data because:
+        - It's necessary to perform our contract with you
+        - You've given consent for specific purposes
+        - We have legitimate interests in providing our services
+
+        ### 6. With whom do we share personal data?
+
+        We share your data only in limited circumstances and strictly on a need-to-know basis:
+
+        - **Cloud Service Providers**: We use secure cloud hosting services to store your data
+        - **Payment Processors**: For processing subscription payments
+        - **Email Service Providers**: To send notifications and communications
+
+        We do not sell, rent, or share your data with third parties for marketing purposes, analytics, or any other purpose beyond what is necessary to provide our services.
+
+        ### 7. For how long do we retain your personal data?
+
+        We keep your personal data for as long as necessary to provide our services or as required by law. If you delete your account, we will remove your personal data from our active systems within 90 days, though some information may remain in backups for legal and technical reasons.
+
+        ### 8. How do we transfer your data?
+
+        Dentist Friend complies with data protection regulations. We implement appropriate safeguards when transferring data, including encryption and access controls.
+
+        ### 9. What are your rights regarding your personal data?
+
+        You have the right to:
+        - Access your personal data
+        - Correct inaccurate information
+        - Request deletion of your data
+        - Object to processing of your data
+        - Request restriction of processing
+        - Data portability
+        - Withdraw consent
+
+        To exercise these rights, please contact us at privacy@dentistfriend.com.
+
+        ### 10. Security
+        
+        We implement robust security measures to protect your personal information. This includes encryption, secure data centers, and strict access controls. We prioritize the security of your data and regularly review our security practices to maintain the highest standards. However, no method of transmission over the internet is 100% secure, so while we use industry-best practices, we cannot guarantee absolute security.
+
+        ### 11. Changes to this policy
+
+        We may update this policy periodically. If we make significant changes, we will notify you via email or through our application. Any changes will take effect 30 days after the update date.
+
+        Last revised: April 17, 2025
+        """)
 
 
 def show_nav():
