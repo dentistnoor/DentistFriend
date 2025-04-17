@@ -6,7 +6,7 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from dotenv import load_dotenv
-from utils import show_footer
+from utils import show_footer, custom_css
 
 # Configure Streamlit page settings
 st.set_page_config(
@@ -26,6 +26,7 @@ if not firebase_admin._apps:
 
 database = firestore.client()
 
+custom_css()
 
 def main():
     st.image('assets/header.jpg')
@@ -68,7 +69,7 @@ def main():
             if st.button("Delete Account", icon="🗑️", use_container_width=True):
                 delete_account()
 
-        # Privacy Policy section for logged-in users
+        # Privacy Policy section
         st.divider()
         show_privacy_policy()
 
@@ -96,7 +97,7 @@ def main():
             with tab2:
                 sign_up()
 
-        # Privacy Policy section for non-logged in users
+        # Privacy Policy section
         st.divider()
         show_privacy_policy()
 
@@ -110,26 +111,24 @@ def main():
 
 
 def show_info():
-    # col1, col2 = st.columns([2, 1])
-
-    # with col1:
-        st.markdown(
-            """
-            ## What is Dentist Friend?
-
+    st.markdown("""
+    <div style="background-color: #ffffff; border-radius: 6px; padding: 12px; margin-bottom: 14px; border: 1px solid #eaedf2;">
+        <h2 style="color: #3d4a41; margin-top: 0; font-size: 22px; font-weight: 600;">What is Dentist Friend?</h2>
+        <p style="font-size: 15px; line-height: 1.4; color: #444;">
             Dentist Friend is a comprehensive dental practice management solution that streamlines
             patient treatment, inventory management, and communication for efficient clinic operations.
+        </p>
+    </div>
 
-            ### Key Features
-            - **Patient Management**:  Register patients, search records, and manage treatments with dental charts, procedures,
-            cost summaries, and PDF export.
-
-            - **Inventory Management**: Add, remove, and modify inventory items with alerts for low stock and expiring items.
-            """
-        )
-
-    # with col2:
-    #     st.image("assets/logo.jpg", caption="Demo Video Coming Soon")
+    <div style="background-color: #ffffff; border-radius: 6px; padding: 12px; border: 1px solid #eaedf2;">
+        <h2 style="color: #3d4a41; margin-top: 0; font-size: 22px; font-weight: 600;">Key Features</h2>
+        <ul style="font-size: 15px; line-height: 1.4; padding-left: 18px; color: #444;">
+            <li><strong>Patient Management</strong>: Register patients, search records, and manage treatments with dental charts, procedures,
+            cost summaries, and PDF export.</li>
+            <li><strong>Inventory Management</strong>: Add, remove, and modify inventory items with alerts for low stock and expiring items.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def show_support():
@@ -245,7 +244,7 @@ def show_privacy_policy():
         - Data portability
         - Withdraw consent
 
-        To exercise these rights, please contact us at privacy@dentistfriend.com.
+        To exercise these rights, please contact us at privacy@dentistfriend.in
 
         ### 10. Security
         

@@ -148,7 +148,7 @@ def show_treatments(database, doctor_email, doctor_settings):
                 label_visibility="collapsed"
             )
 
-        if st.button("Save Procedure", use_container_width=True):
+        if st.button("✔️ Save Procedure", use_container_width=True):
             if new_procedure:
                 # Check if procedure already exists to avoid duplicates
                 if new_procedure not in procedures:

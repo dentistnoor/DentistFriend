@@ -396,3 +396,33 @@ def configure_cloudinary():
         api_secret=os.getenv('CLOUDINARY_API_SECRET'),
         secure=True
     )
+
+
+def custom_css():
+    st.markdown("""
+        <style>
+            .stButton > button {
+                padding: 12px 8px;
+                font-size: 16px;
+                font-weight: 500;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+
+            .stButton > button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+
+            .stButton > button svg {
+                height: 20px;
+                width: 20px;
+                margin-right: 6px;
+            }
+
+            .stAlert {
+                border-radius: 8px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
