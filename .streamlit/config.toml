@@ -1,7 +1,7 @@
 # https://docs.streamlit.io/develop/api-reference/configuration/config.toml
 
 [theme]
-primaryColor="#010826"
+
 backgroundColor="#d9e0fe"
 secondaryBackgroundColor="#f9fafb"
 textColor="#2f3828"
