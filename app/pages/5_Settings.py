@@ -26,16 +26,19 @@ def main():
     doctor_settings = load_settings(database, doctor_email)
 
     # Create tabs for different setting categories
-    tab1, tab2, tab3 = st.tabs(["Treatment Procedures", "Dental Chart", "Currency Settings"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Treatment Procedures", "Dental Chart", "Currency Settings", "Profile Settings"])
 
     with tab1:
         show_treatments(database, doctor_email, doctor_settings)
 
     with tab2:
-        show_chart()
+        show_chart(database, doctor_email, doctor_settings)
 
     with tab3:
         show_currency(database, doctor_email, doctor_settings)
+
+    with tab4:
+        show_profile(database, doctor_email)
 
 
 def load_settings(database, doctor_email):
@@ -109,6 +112,8 @@ def show_treatments(database, doctor_email, doctor_settings):
                     prices[procedure] = new_price
 
             with cols[2]:
+                st.write("")
+                st.write("")
                 if st.button("❌", key=f"delete_procedure_{i}"):
                     procedures.pop(i)
                     if procedure in prices:
@@ -243,6 +248,39 @@ def show_currency(database, doctor_email, doctor_settings):
                 save_settings(database, doctor_email, doctor_settings)
                 st.success(f"Currency updated to {currency_options[selected_currency]}")
                 st.rerun()
+
+
+def show_profile(database, doctor_email):
+    """Display and manage doctor profile settings."""
+    st.header("Profile Settings")
+    st.info("Update your profile information")
+
+    try:
+        # Get current doctor information
+        doctor_ref = database.collection("doctors").document(doctor_email)
+        doctor_doc = doctor_ref.get()
+
+        if doctor_doc.exists:
+            doctor_data = doctor_doc.to_dict()
+            current_name = doctor_data.get("name", "")
+
+            # Display form to edit doctor name
+            with st.container(border=True):
+                st.subheader("Your Information")
+                new_name = st.text_input("Doctor Name", value=current_name)
+
+                if st.button("✔️ Update Profile", use_container_width=True):
+                    if new_name != current_name:
+                        # Update name in Firestore
+                        doctor_ref.update({"name": new_name})
+                        # Update session state
+                        st.session_state["doctor_name"] = new_name
+                        st.success("Profile updated successfully!")
+                        st.rerun()
+        else:
+            st.error("Doctor profile not found. Please contact support.")
+    except Exception as e:
+        st.error(f"Error loading profile: {e}")
 
 
 main()
