@@ -14,7 +14,6 @@ if "patient_status" not in st.session_state:
 if "treatment_record" not in st.session_state:
     st.session_state.treatment_record = []
 
-# Initialize Firestore database client
 database = firestore.client()
 
 
@@ -595,6 +594,7 @@ def main():
                         if st.button("🗑️ Delete", key=f"delete_xray_{i}"):
                             if delete_xray_image(doctor_email, file_id, xray["public_id"], i):
                                 st.success("X-Ray deleted successfully!")
+                                st.rerun()
 
             # X-ray image upload functionality with Cloudinary
             with st.container(border=True):
@@ -634,6 +634,7 @@ def main():
 
                             if save_xray_image(doctor_email, file_id, image_data):
                                 st.success("X-Ray uploaded successfully!")
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Image Upload Error: {str(e)}")
 

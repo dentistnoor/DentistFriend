@@ -141,7 +141,6 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
                 current_x += max_image_width + 15
 
     # Treatment plan details section with proper page break
-    pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "Treatment Plan Details", 0, 1, "L")
     pdf.set_draw_color(100, 100, 100)
