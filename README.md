@@ -34,6 +34,10 @@ Please note that **Dentist Friend** is not intended to replace or infringe upon 
 
 - **Cloudinary:** A cloud-based media management service for efficient storage and delivery of dental images, X-rays, and other clinical media files.
 
+- **Mailgun:** An email automation service used for sending low stock and expiry alerts to ensure timely inventory management and minimize disruptions to practice operations.
+
+The application is deployed via Docker on Digital Ocean App Platform.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
