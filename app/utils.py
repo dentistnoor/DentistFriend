@@ -79,67 +79,6 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     pdf.cell(0, 7, f"Report ID: {report_id}", 0, 1)
     pdf.ln(5)
 
-    if xray_images and len(xray_images) > 0:
-        # Add a new page for X-rays if there's not enough space
-        if pdf.get_y() > 180:
-            pdf.add_page()
-
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, "Dental X-Ray Images", 0, 1, "L")
-        pdf.set_draw_color(100, 100, 100)
-        pdf.line(15, pdf.get_y(), 195, pdf.get_y())
-        pdf.ln(10)
-
-        # Determine grid layout based on number of images
-        images_per_row = 2
-        max_image_width = 80
-        max_image_height = 65
-
-        current_x = 15
-        current_y = pdf.get_y()
-
-        for i, xray in enumerate(xray_images):
-            # Check if we need to move to next row or new page
-            if i > 0 and i % images_per_row == 0:
-                current_x = 15
-                current_y += max_image_height + 15  # Image height + padding
-
-                # Check if we need a new page
-                if current_y > 250:
-                    pdf.add_page()
-                    current_y = 15 + 10  # Top margin + padding
-
-            try:
-                # Create a temporary file for the image
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-                    temp_img_path = temp_file.name
-
-                # Download image from Cloudinary URL
-                response = requests.get(xray["url"], stream=True)
-                if response.status_code == 200:
-                    with open(temp_img_path, 'wb') as f:
-                        f.write(response.content)
-
-                    # Add image to PDF with balanced dimensions
-                    pdf.image(temp_img_path, x=current_x, y=current_y, w=max_image_width)
-
-                    # Add caption under the image
-                    caption_y = current_y + max_image_height - 10
-                    pdf.set_xy(current_x, caption_y)
-                    pdf.set_font("Arial", "", 8)
-                    pdf.multi_cell(max_image_width, 5, xray.get("caption", "X-Ray Image"), 0, 'C')
-
-                    # Clean up temporary file
-                    os.remove(temp_img_path)
-
-                    # Move x position for next image
-                    current_x += max_image_width + 15  # Image width + padding
-            except Exception as e:
-                pdf.set_font("Arial", "", 10)
-                pdf.set_xy(current_x, current_y)
-                pdf.multi_cell(max_image_width, 10, "Error loading image", 0, 'C')
-                current_x += max_image_width + 15
-
     # Treatment plan details section with proper page break
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "Treatment Plan Details", 0, 1, "L")
@@ -239,6 +178,69 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     pdf.set_fill_color(230, 230, 230)  # Darker highlight for total
     pdf.cell(col1_width, 8, "Final Total", 1, 0, "L", True)
     pdf.cell(col2_width, 8, f"{display_currency} {float(final_cost):.2f}", 1, 1, "R", True)
+
+    if xray_images and len(xray_images) > 0:
+        # Add a new page for X-rays if there's not enough space
+        if pdf.get_y() > 180:
+            pdf.add_page()
+        else:
+            pdf.ln(15)  # Add spacing after cost table
+
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, "Dental X-Ray Images", 0, 1, "L")
+        pdf.set_draw_color(100, 100, 100)
+        pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+        pdf.ln(10)
+
+        # Determine grid layout based on number of images
+        images_per_row = 2
+        max_image_width = 80
+        max_image_height = 65
+
+        current_x = 15
+        current_y = pdf.get_y()
+
+        for i, xray in enumerate(xray_images):
+            # Check if we need to move to next row or new page
+            if i > 0 and i % images_per_row == 0:
+                current_x = 15
+                current_y += max_image_height + 15  # Image height + padding
+
+                # Check if we need a new page
+                if current_y > 250:
+                    pdf.add_page()
+                    current_y = 15 + 10  # Top margin + padding
+
+            try:
+                # Create a temporary file for the image
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+                    temp_img_path = temp_file.name
+
+                # Download image from Cloudinary URL
+                response = requests.get(xray["url"], stream=True)
+                if response.status_code == 200:
+                    with open(temp_img_path, 'wb') as f:
+                        f.write(response.content)
+
+                    # Add image to PDF with balanced dimensions
+                    pdf.image(temp_img_path, x=current_x, y=current_y, w=max_image_width)
+
+                    # Add caption under the image
+                    caption_y = current_y + max_image_height - 10
+                    pdf.set_xy(current_x, caption_y)
+                    pdf.set_font("Arial", "", 8)
+                    pdf.multi_cell(max_image_width, 5, xray.get("caption", "X-Ray Image"), 0, 'C')
+
+                    # Clean up temporary file
+                    os.remove(temp_img_path)
+
+                    # Move x position for next image
+                    current_x += max_image_width + 15  # Image width + padding
+            except Exception as e:
+                pdf.set_font("Arial", "", 10)
+                pdf.set_xy(current_x, current_y)
+                pdf.multi_cell(max_image_width, 10, "Error loading image", 0, 'C')
+                current_x += max_image_width + 15
 
     # Add footer with proper spacing
     pdf.ln(15)

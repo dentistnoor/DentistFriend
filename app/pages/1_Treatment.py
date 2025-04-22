@@ -463,7 +463,7 @@ def main():
                                     "Tooth": tooth,
                                     "Procedure": new_procedure,
                                     "Cost": procedure_price,
-                                    "Status": st.session_state[f"status_{key_id}"],
+                                    # "Status": st.session_state[f"status_{key_id}"],
                                     # "Duration": st.session_state[f"duration_{key_id}"],
                                     "Start Date": start_date_str
                                 }
@@ -594,7 +594,7 @@ def main():
                         if st.button("🗑️ Delete", key=f"delete_xray_{i}"):
                             if delete_xray_image(doctor_email, file_id, xray["public_id"], i):
                                 st.success("X-Ray deleted successfully!")
-                                st.rerun()
+                                # st.rerun()
 
             # X-ray image upload functionality with Cloudinary
             with st.container(border=True):
@@ -634,7 +634,7 @@ def main():
 
                             if save_xray_image(doctor_email, file_id, image_data):
                                 st.success("X-Ray uploaded successfully!")
-                                st.rerun()
+                                # st.rerun()
                         except Exception as e:
                             st.error(f"Image Upload Error: {str(e)}")
 
@@ -667,8 +667,11 @@ def main():
                     # Calculate total price and apply discounts/taxes
                     total_price = sum(item["Cost"] for item in st.session_state.treatment_record)
                     discount_amount = st.number_input("Discount Amount", min_value=0.0, step=1.0,
-                                                     format="%.2f", key="discount_amount")
+                                                      format="%.2f", key="discount_amount")
                     tax_apply = st.checkbox("Apply VAT (15%)", key="tax_apply")
+
+                    # Checkbox to include dental images in the PDF report
+                    include_images = st.checkbox("Include Dental Imaging in Report", value=True, key="include_images")
 
                     # Calculate final price with VAT and discount
                     tax_calculation = total_price * 0.15 if tax_apply else 0
@@ -707,10 +710,10 @@ def main():
                     # PDF report generation - creates and downloads treatment plan as PDF
                     if st.button("📄 Generate Treatment Report", use_container_width=True, key="generate_report"):
                         try:
-                            # Get patient's X-ray images
-                            patient_xrays = get_patient_xrays(doctor_email, file_id)
+                            # Get patient's X-ray images if selected
+                            patient_xrays = get_patient_xrays(doctor_email, file_id) if include_images else []
 
-                            # Generate PDF report with treatment details, cost summary and X-rays
+                            # Generate PDF report with treatment details, cost summary and X-rays (if selected)
                             pdf_path = generate_pdf(
                                 st.session_state.get("doctor_name", "Doctor"),
                                 patient_info["name"] or "Unknown Patient",
