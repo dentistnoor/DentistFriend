@@ -29,7 +29,7 @@ database = firestore.client()
 custom_css()
 
 def main():
-    st.image('assets/header.jpg')
+    st.image('assets/header2.jpg', use_container_width=True)
     st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠")
 
     # Initialize session state for login tracking
@@ -89,13 +89,16 @@ def main():
             show_info()
 
         with auth_col:
-            tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
+            tab1, tab2, tab3= st.tabs(["Sign In", "Sign Up", "Reset Password"])
 
             with tab1:
                 sign_in()
 
             with tab2:
                 sign_up()
+
+            with tab3:
+                reset_password()
 
         # Privacy Policy section
         st.divider()
@@ -348,9 +351,9 @@ def sign_in():
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    with col2:
-        if st.button("Reset Password", icon="🔄", use_container_width=True):
-            reset_password()
+    # with col2:
+    #     if st.button("Reset Password", icon="🔄", use_container_width=True):
+    #         reset_password()
 
 
 def reset_password():
