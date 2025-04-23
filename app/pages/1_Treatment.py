@@ -66,7 +66,7 @@ def modify_treatment(doctor_email, file_id, treatment_record):
 
 
 def load_settings(doctor_email):
-    """Load doctor settings from Firestore including treatment procedures and prices"""
+    """Load doctor settings from Firestore including treatment procedures, health conditions, and prices"""
     try:
         doctor_ref = database.collection("doctors").document(doctor_email)
         settings_doc = doctor_ref.collection("settings").document("config").get()
@@ -76,7 +76,10 @@ def load_settings(doctor_email):
         else:
             return {
                 "treatment_procedures": ["Cleaning"],
-                "price_estimates": {"Cleaning": 100}
+                "price_estimates": {"Cleaning": 100},
+                "health_conditions": ["Healthy"],
+                "condition_colors": {"Healthy": "#4CAF50"},
+                "currency": "SAR"
             }
     except Exception as e:
         st.error(f"Failed to load doctor settings: {str(e)}")
@@ -106,6 +109,7 @@ def main():
     # Merge doctor's treatment procedures and price estimates with dental_data
     dental_data["treatment_procedures"] = doctor_settings.get("treatment_procedures", ["Cleaning"])
     dental_data["price_estimates"] = doctor_settings.get("price_estimates", {"Cleaning": 100})
+    dental_data["health_conditions"] = doctor_settings.get("health_conditions", ["Healthy"])
 
     st.header("Patient Registration")
 
@@ -253,7 +257,7 @@ def main():
         with tab1:
             # Dental chart assessment tool - visual representation of patient's dental health
             dental_chart = patient_info.get("dental_chart", {})
-            updated_chart, chart_changed = render_chart(dental_data, dental_chart)
+            updated_chart, chart_changed = render_chart(dental_data, dental_chart, doctor_settings)
 
             # Save dental chart changes to database if changes were made
             if chart_changed:

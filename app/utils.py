@@ -261,8 +261,8 @@ def update_tooth(tooth_number):
     st.session_state[f"tooth_condition_{tooth_number}"] = selected_value
 
 
-def render_chart(dental_data, dental_chart=None):
-    """Render interactive dental chart with colored teeth boxes based on patient type."""
+def render_chart(dental_data, dental_chart=None, doctor_settings=None):
+    """Render interactive dental chart with colored teeth boxes based on patient type and doctor settings."""
     if dental_chart is None:
         dental_chart = {}
 
@@ -283,37 +283,14 @@ def render_chart(dental_data, dental_chart=None):
         if tooth in dental_chart:
             teeth_map[tooth] = dental_chart[tooth]
 
-    # Define color mapping for different health conditions
-    condition_colors = {
-        "Healthy": "#008000",  # Green
-        "Decayed": "#9B2226",  # Dark Red
-        "Missing": "#ADB5BD",  # Gray
-        "Cavity": "#6C757D",   # Dark Gray
-        "Implant": "#6C757D",  # Dark Gray
-        "Extraction": "#774936", # Brown
-        # "Root Canal": "#FFA500", # Orange
-        "Fractured": "#9B2226",  # Dark Red
-        "Filled": "#007BFF",   # Blue
-        "Discolored": "#FFD700", # Gold
-        "Loose": "#FF7F50",    # Coral
-        "Crowded": "#800080",  # Purple
-        "Gingivitis": "#FF69B4", # Pink
-        "Periodontitis": "#FF0000", # Red
-        "Impacted": "#6C757D", # Dark Gray
-        "Abrasion": "#FF4500",  # Orange Red
-        "Anodontia": "#ADB5BD", # Gray
-        "Attrition": "#FF8C00", # Dark Orange
-        "Erosion": "#DAA520",   # Golden Rod
-        "Hyperdontia": "#4B0082", # Indigo
-        # Default for any other condition
-        "default": "#008000"   # Green
-    }
+    # Get health conditions and colors from doctor settings
+    health_conditions = doctor_settings.get("health_conditions", ["Healthy"])
+    condition_colors = doctor_settings.get("condition_colors", {"Healthy": "#4CAF50"})
 
     # Track if chart has been modified
     chart_changed = False
 
     st.header("Dental Chart Assessment")
-
     with st.container(border=True):
         # Process each row of teeth in the dental chart
         for teeth_row in teeth_rows:
@@ -328,7 +305,7 @@ def render_chart(dental_data, dental_chart=None):
                                                           dental_chart.get(tooth_number, "Healthy"))
 
                     # Get the appropriate color for this tooth's condition
-                    tooth_color = condition_colors.get(current_condition, condition_colors["default"])
+                    tooth_color = condition_colors.get(current_condition, "#808080")  # Default to gray if not found
 
                     # Create a visual box for the tooth with the appropriate color
                     st.markdown(
@@ -351,13 +328,13 @@ def render_chart(dental_data, dental_chart=None):
                     # Dropdown selector for tooth condition
                     default_index = 0
                     try:
-                        default_index = dental_data["health_conditions"].index(current_condition)
+                        default_index = health_conditions.index(current_condition)
                     except (ValueError, IndexError):
                         default_index = 0
 
                     selected_condition = st.selectbox(
                         f"Tooth {tooth_number}",
-                        dental_data["health_conditions"],
+                        health_conditions,
                         index=default_index,
                         key=f"tooth_{tooth_number}",
                         label_visibility="collapsed",

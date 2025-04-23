@@ -55,6 +55,8 @@ def load_settings(database, doctor_email):
             settings = {
                 "treatment_procedures": ["Cleaning"],
                 "price_estimates": {"Cleaning": 100},
+                "health_conditions": ["Healthy"],
+                "condition_colors": {"Healthy": "#4CAF50"},
                 "currency": "SAR"
             }
             save_settings(database, doctor_email, settings)
@@ -170,12 +172,88 @@ def show_treatments(database, doctor_email, doctor_settings):
                 st.error("Please enter a procedure name")
 
 
-def show_chart():
-    """Display dental chart configuration options including the standard teeth notation system."""
+def show_chart(database, doctor_email, doctor_settings):
+    """Display health conditions and dental chart settings."""
     st.header("Dental Chart Configuration")
     st.info("Customize your dental chart settings and health conditions")
 
-    # Information about the dental notation system
+    # Load current health conditions and colors
+    health_conditions = doctor_settings.get("health_conditions", ["Healthy"])
+    condition_colors = doctor_settings.get("condition_colors", {"Healthy": "#4CAF50"})
+
+    st.subheader("Tooth Health Conditions")
+    with st.container(border=True):
+        if health_conditions:
+            for i, condition in enumerate(health_conditions):
+                cols = st.columns([5, 2, 1])
+
+                with cols[0]:
+                    new_condition = st.text_input(
+                        f"Condition {i+1}",
+                        value=condition,
+                        key=f"condition_{i}"
+                    ).strip()
+                    health_conditions[i] = new_condition
+
+                with cols[1]:
+                    current_color = condition_colors.get(condition, "#FFFFFF")
+                    new_color = st.color_picker(
+                        "Color",
+                        value=current_color,
+                        key=f"color_{i}"
+                    )
+                    condition_colors[condition] = new_color
+
+                with cols[2]:
+                    if i > 0:  # Only show delete button for non-first conditions
+                        # Add vertical spacing to align with inputs
+                        st.write("")
+                        st.write("")
+                        if st.button("❌", key=f"delete_condition_{i}"):
+                            health_conditions.pop(i)
+                            if condition in condition_colors:
+                                condition_colors.pop(condition)
+
+                            doctor_settings["health_conditions"] = health_conditions
+                            doctor_settings["condition_colors"] = condition_colors
+                            save_settings(database, doctor_email, doctor_settings)
+                            st.success("Health condition removed successfully")
+                            st.rerun()
+        else:
+            st.caption("No health conditions defined. Add at least one condition.")
+
+    with st.expander("Add New Health Condition", expanded=True):
+        cols = st.columns([5, 2])
+
+        with cols[0]:
+            new_condition = st.text_input(
+                "New Health Condition",
+                key="new_health_condition"
+            ).strip()
+
+        with cols[1]:
+            new_color = st.color_picker(
+                "Select color",
+                value="#808080",  # Default gray for new conditions
+                key="new_condition_color"
+            )
+
+        if st.button("✔️ Add Health Condition", use_container_width=True):
+            if new_condition:
+                if new_condition.lower() not in [c.lower() for c in health_conditions]:
+                    health_conditions.append(new_condition)
+                    condition_colors[new_condition] = new_color
+
+                    doctor_settings["health_conditions"] = health_conditions
+                    doctor_settings["condition_colors"] = condition_colors
+                    save_settings(database, doctor_email, doctor_settings)
+                    st.success(f"New health condition '{new_condition}' added successfully")
+                    st.rerun()
+                else:
+                    st.error("This health condition already exists")
+            else:
+                st.error("Please enter a health condition name")
+
     with st.expander("Dental Notation System", expanded=True):
         st.subheader("FDI World Dental Federation Notation (ISO 3950)")
         st.info("""
@@ -198,27 +276,6 @@ def show_chart():
         with col2:
             st.markdown("**Lower Jaw**")
             st.markdown("48 47 46 45 44 43 42 41 | 31 32 33 34 35 36 37 38")
-
-    # Display tooth health conditions (read-only)
-    st.subheader("Tooth Health Conditions")
-    st.error("NOTE: Health conditions cannot be modified at this time (under development)", icon="⚠️")
-    conditions = default_data.get("health_conditions", [])
-
-    with st.container(border=True):
-        if conditions:
-            # Show each condition in a disabled text input
-            for i, condition in enumerate(conditions):
-                st.text_input(
-                    f"Condition {i+1}",
-                    value=condition,
-                    key=f"condition_{i}",
-                    disabled=True
-                )
-        else:
-            st.caption("No health conditions available.")
-
-    st.subheader("Dental Chart Customization")
-    st.error("NOTE: Additional customization options are under development", icon="⏳")
 
 
 def show_currency(database, doctor_email, doctor_settings):
