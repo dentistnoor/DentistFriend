@@ -17,6 +17,37 @@ if "treatment_record" not in st.session_state:
 database = firestore.client()
 
 
+def fetch_patient(doctor_email, identifier, search_by="id"):
+    """Fetch patient information from Firestore based on ID or name."""
+    try:
+        doctor_reference = database.collection("doctors").document(doctor_email)
+
+        # ID-based search (exact match)
+        if search_by == "id":
+            patient_document = doctor_reference.collection("patients").document(identifier).get()
+            if patient_document.exists:
+                return patient_document.to_dict()
+            return None
+
+        # Name-based search (case-insensitive partial match)
+        elif search_by == "name":
+            patients_collection = doctor_reference.collection("patients")
+            patients = patients_collection.get()
+
+            # Filter patients where name contains the search term (case-insensitive)
+            matches = []
+            for patient in patients:
+                patient_data = patient.to_dict()
+                if identifier.lower() in patient_data.get("name", "").lower():
+                    matches.append(patient_data)
+
+            return matches
+
+    except Exception as e:
+        st.error(f"Database Error: Failed to fetch patient - {str(e)}")
+        return None if search_by == "id" else []
+
+
 def store_patient(doctor_email, patient_info):
     """Store new patient information in Firestore under the doctor's collection"""
     try:
@@ -26,19 +57,6 @@ def store_patient(doctor_email, patient_info):
     except Exception as e:
         st.error(f"Database Error: Failed to store patient - {str(e)}")
         return False
-
-
-def fetch_patient(doctor_email, file_id):
-    """Retrieve patient data from Firestore using doctor email and patient file ID"""
-    try:
-        doctor_reference = database.collection("doctors").document(doctor_email)
-        patient_document = doctor_reference.collection("patients").document(file_id).get()
-        if patient_document.exists:
-            return patient_document.to_dict()
-        return None
-    except Exception as e:
-        st.error(f"Database Error: Failed to fetch patient - {str(e)}")
-        return None
 
 
 def modify_patient(doctor_email, file_id, patient_data):
@@ -102,7 +120,7 @@ def main():
     doctor_email = st.session_state.get("doctor_email")
     doctor_settings = load_settings(doctor_email)
 
-    # Load dental chart data from config file (teeth map, teeth rows, health conditions)
+    # Load dental chart data from config file (teeth map and teeth rows)
     with open("app/data.json", "r") as file:
         dental_data = json.load(file)
 
@@ -110,6 +128,41 @@ def main():
     dental_data["treatment_procedures"] = doctor_settings.get("treatment_procedures", ["Cleaning"])
     dental_data["price_estimates"] = doctor_settings.get("price_estimates", {"Cleaning": 100})
     dental_data["health_conditions"] = doctor_settings.get("health_conditions", ["Healthy"])
+
+    if "search_results" in st.session_state and st.session_state.search_results:
+        st.header("Patient Search Results")
+        st.write(f"Found {len(st.session_state.search_results)} matching patients")
+
+        for i, patient in enumerate(st.session_state.search_results):
+            with st.container(border=True):
+                col1, col2, col3 = st.columns([3, 2, 1])
+                with col1:
+                    st.write(f"**Name:** {patient['name']}")
+                with col2:
+                    st.write(f"**File ID:** {patient['file_id']}")
+                with col3:
+                    if st.button("Select", key=f"select_patient_{i}"):
+                        # Load the selected patient
+                        st.session_state.patient_status = True
+                        st.session_state.patient_selected = patient
+                        st.session_state.treatment_record = patient.get("treatment_plan", [])
+
+                        # Initialize tooth condition session state variables for existing dental chart
+                        dental_chart = patient.get("dental_chart", {})
+                        for tooth, condition in dental_chart.items():
+                            st.session_state[f"tooth_condition_{tooth}"] = condition
+
+                        # Clear search results to return to normal view
+                        st.session_state.search_results = []
+                        st.rerun()
+
+        # Button to return to registration form
+        if st.button("Return to Search", use_container_width=True):
+            st.session_state.search_results = []
+            st.rerun()
+
+        # Skip the rest of the interface while in selection mode
+        return
 
     st.header("Patient Registration")
 
@@ -123,58 +176,87 @@ def main():
         patient_gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="reg_gender")
         file_id = st.text_input("File ID", placeholder="Enter File ID", key="reg_file_id")
 
-    # Action buttons layout
-    col1, col2 = st.columns(2)
-    with col1:
+    # Create tabs for registration and search
+    tab1, tab2 = st.tabs(["Register New Patient", "Search Patient"])
+
+    with tab1:
         register_button = st.button("➕ Register Patient", use_container_width=True)
-    with col2:
-        search_button = st.button("🔍 Search Patient", use_container_width=True)
 
-    # Patient registration logic - validates and stores new patient data
-    if register_button:
-        if patient_fullname and patient_age and file_id:
-            # Check if patient with same ID already exists to prevent duplicates
-            existing_patient = fetch_patient(st.session_state.doctor_email, file_id)
-            if existing_patient:
-                st.error(f"Registration Error: File ID {file_id} already exists in the database")
-                st.session_state.patient_status = False
+        if register_button:
+            if patient_fullname and patient_age and file_id:
+                # Check if patient with same ID already exists to prevent duplicates
+                existing_patient = fetch_patient(st.session_state.doctor_email, file_id)  # Default search_by="id"
+                if existing_patient:
+                    st.error(f"Registration Error: File ID {file_id} already exists in the database")
+                    st.session_state.patient_status = False
+                else:
+                    # Create new patient record with empty dental chart and treatment plan
+                    patient_info = {
+                        "name": patient_fullname,
+                        "age": patient_age,
+                        "gender": patient_gender,
+                        "file_id": file_id,
+                        "patient_type": patient_type.lower(),
+                        "dental_chart": {},
+                        "treatment_plan": []
+                    }
+                    if store_patient(st.session_state.doctor_email, patient_info):
+                        st.session_state.patient_status = True
+                        st.session_state.patient_selected = patient_info
+                        st.session_state.treatment_record = []
+                        st.success(f"Registration Successful: Patient {patient_fullname} added to database")
             else:
-                # Create new patient record with empty dental chart and treatment plan
-                patient_info = {
-                    "name": patient_fullname,
-                    "age": patient_age,
-                    "gender": patient_gender,
-                    "file_id": file_id,
-                    "patient_type": patient_type.lower(),
-                    "dental_chart": {},
-                    "treatment_plan": []
-                }
-                if store_patient(st.session_state.doctor_email, patient_info):
-                    st.session_state.patient_status = True
-                    st.session_state.patient_selected = patient_info
-                    st.session_state.treatment_record = []
-                    st.success(f"Registration Successful: Patient {patient_fullname} added to database")
-        else:
-            st.error("Registration Error: All fields are required to complete registration")
-            st.session_state.patient_status = False
+                st.error("Registration Error: All fields are required to complete registration")
+                st.session_state.patient_status = False
 
-    # Patient search functionality - uses file_id to find existing patient
-    if search_button and file_id:
-        patient_info = fetch_patient(st.session_state.doctor_email, file_id)
-        if patient_info:
-            st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
-            st.session_state.patient_status = True
-            st.session_state.patient_selected = patient_info
-            # Load existing treatment plan if available
-            st.session_state.treatment_record = patient_info.get("treatment_plan", [])
+    with tab2:
+        search_name = st.text_input("Search by Name", placeholder="Enter patient name", key="search_name")
+        search_id = st.text_input("Search by File ID", placeholder="Enter file ID", key="search_id")
 
-            # Initialize tooth condition session state variables for existing dental chart
-            dental_chart = patient_info.get("dental_chart", {})
-            for tooth, condition in dental_chart.items():
-                st.session_state[f"tooth_condition_{tooth}"] = condition
-        else:
-            st.warning("Patient Lookup Failed: No records match this file ID")
-            st.session_state.patient_status = False
+        col1, col2 = st.columns(2)
+        with col1:
+            search_by_name = st.button("🔍 Search by Name", use_container_width=True)
+        with col2:
+            search_by_id = st.button("🔍 Search by ID", use_container_width=True)
+
+        if search_by_name and search_name:
+            matching_patients = fetch_patient(st.session_state.doctor_email, search_name, search_by="name")
+
+            if not matching_patients:
+                st.warning("No patients found matching this name")
+                st.session_state.patient_status = False
+            elif len(matching_patients) == 1 and matching_patients[0]["name"].lower() == search_name.lower():
+                # Exact match - directly load the patient
+                patient_info = matching_patients[0]
+                st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
+                st.session_state.patient_status = True
+                st.session_state.patient_selected = patient_info
+                st.session_state.treatment_record = patient_info.get("treatment_plan", [])
+
+                # Initialize tooth condition session state variables for existing dental chart
+                dental_chart = patient_info.get("dental_chart", {})
+                for tooth, condition in dental_chart.items():
+                    st.session_state[f"tooth_condition_{tooth}"] = condition
+            else:
+                # Multiple matches - store in session state and display selection interface
+                st.session_state.search_results = matching_patients
+                st.rerun()
+
+        if search_by_id and search_id:
+            patient_info = fetch_patient(st.session_state.doctor_email, search_id)  # Default search_by="id"
+            if patient_info:
+                st.success(f"Patient Found: {patient_info['name']}, Age: {patient_info['age']}")
+                st.session_state.patient_status = True
+                st.session_state.patient_selected = patient_info
+                st.session_state.treatment_record = patient_info.get("treatment_plan", [])
+
+                # Initialize tooth condition session state variables for existing dental chart
+                dental_chart = patient_info.get("dental_chart", {})
+                for tooth, condition in dental_chart.items():
+                    st.session_state[f"tooth_condition_{tooth}"] = condition
+            else:
+                st.warning("Patient Lookup Failed: No records match this file ID")
+                st.session_state.patient_status = False
 
     # Display patient details and treatment options when a patient is active
     if st.session_state.patient_status:
@@ -326,7 +408,7 @@ def main():
                             # Create new treatment record with default schedule
                             new_procedure = {
                                 "Tooth": tooth_identifier,
-                                "Condition": tooth_condition ,
+                                "Condition": tooth_condition,
                                 "Procedure": treatment_procedure,
                                 "Cost": procedure_price,
                                 "Status": "Pending",
@@ -465,6 +547,7 @@ def main():
                                 # Create updated procedure record
                                 updated_procedure = {
                                     "Tooth": tooth,
+                                    "Condition": tooth_condition,
                                     "Procedure": new_procedure,
                                     "Cost": procedure_price,
                                     # "Status": st.session_state[f"status_{key_id}"],
