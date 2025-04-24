@@ -255,12 +255,6 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     return filename
 
 
-def update_tooth(tooth_number):
-    """Update tooth condition in session state."""
-    selected_value = st.session_state[f"tooth_{tooth_number}"]
-    st.session_state[f"tooth_condition_{tooth_number}"] = selected_value
-
-
 def render_chart(dental_data, dental_chart=None, doctor_settings=None):
     """Render interactive dental chart with colored teeth boxes based on patient type and doctor settings."""
     if dental_chart is None:
@@ -355,6 +349,12 @@ def render_chart(dental_data, dental_chart=None, doctor_settings=None):
                             st.session_state.tooth_selected = tooth_number
 
     return dental_chart, chart_changed
+
+
+def update_tooth(tooth_number):
+    """Update tooth condition in session state."""
+    selected_value = st.session_state[f"tooth_{tooth_number}"]
+    st.session_state[f"tooth_condition_{tooth_number}"] = selected_value
 
 
 def get_currency_symbol(currency_code):

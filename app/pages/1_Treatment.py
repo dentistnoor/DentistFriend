@@ -584,9 +584,8 @@ def main():
                         # Generate optimized URL with transformations if needed
                         img_url, options = cloudinary_url(
                             xray["public_id"],
-                            width=300,
-                            height=300,
-                            crop="fill",
+                            width=500,
+                            crop="scale",
                             quality="auto",
                             fetch_format="auto"
                         )
@@ -598,7 +597,7 @@ def main():
                         if st.button("🗑️ Delete", key=f"delete_xray_{i}"):
                             if delete_xray_image(doctor_email, file_id, xray["public_id"], i):
                                 st.success("X-Ray deleted successfully!")
-                                # st.rerun()
+                                st.rerun()
 
             # X-ray image upload functionality with Cloudinary
             with st.container(border=True):
@@ -638,7 +637,7 @@ def main():
 
                             if save_xray_image(doctor_email, file_id, image_data):
                                 st.success("X-Ray uploaded successfully!")
-                                # st.rerun()
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Image Upload Error: {str(e)}")
 
