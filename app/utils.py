@@ -63,7 +63,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     current_date = datetime.now().strftime("%B %d, %Y")
     pdf.cell(0, 6, f"Date: {current_date}", 0, 1, "R")
 
-    # Patient information section with better spacing
+    # Patient information section
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "Patient Information", 0, 1, "L")
@@ -71,7 +71,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(5)
 
-    # Patient and doctor details with better spacing
+    # Patient and doctor details
     pdf.set_font("Arial", "", 11)
     pdf.cell(0, 7, f"Dentist: {doctor_name}".title(), 0, 1)
     pdf.cell(0, 7, f"Patient Name: {patient_name}".title(), 0, 1)
@@ -79,7 +79,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
     pdf.cell(0, 7, f"Report ID: {report_id}", 0, 1)
     pdf.ln(5)
 
-    # Treatment plan details section with proper page break
+    # Treatment plan details section
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "Treatment Plan Details", 0, 1, "L")
     pdf.set_draw_color(100, 100, 100)
@@ -94,9 +94,22 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         pdf.set_font("Arial", "B", 10)
         pdf.set_fill_color(240, 240, 240)  # Lighter gray for header
 
-        # Define table structure with optimized widths
-        columns = ["Tooth", "Condition", "Procedure", "Start Date", "Cost"]
-        col_widths = [20, 35, 55, 35, 25]
+        # Define columns based on treatment plan data
+        columns = ["Tooth", "Condition", "Procedure", "Cost"]
+
+        # Calculate available page width for table (page width minus margins)
+        available_width = 180  # A4 width (210mm) - margins (15mm on each side)
+
+        # Define dynamic column widths
+        tooth_width = 20  # Fixed for tooth numbers
+        cost_width = 30   # Fixed for costs
+
+        # Calculate remaining width for Condition and Procedure columns
+        remaining_width = available_width - (tooth_width + cost_width)
+        condition_width = int(remaining_width * 0.4)  # 40% of remaining width
+        procedure_width = int(remaining_width * 0.6)  # 60% of remaining width
+
+        col_widths = [tooth_width, condition_width, procedure_width, cost_width]
 
         # Filter available columns based on treatment plan data
         available_columns = []
@@ -115,12 +128,33 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         # Add treatment data rows with alternating colors
         pdf.set_font("Arial", "", 10)
         for idx, item in enumerate(treatment_plan):
+            # Check if row height needs to be adjusted based on content length
+            max_chars_per_line = {
+                "Tooth": 10,
+                "Condition": int(condition_width / 2),  # Approx 2mm per char
+                "Procedure": int(procedure_width / 2),
+                "Cost": 15
+            }
+
+            # Calculate row height based on the longest text
+            row_height = 8  # Default row height
+            for i, col in enumerate(available_columns):
+                value = str(item.get(col, ""))
+                if len(value) > max_chars_per_line.get(col, 20):
+                    # Calculate needed lines for the text
+                    needed_lines = (len(value) / max_chars_per_line.get(col, 20)) + 0.5
+                    new_height = needed_lines * 5  # 5mm per line
+                    row_height = max(row_height, new_height)
+
             # Alternate row colors
             if idx % 2 == 1:
                 pdf.set_fill_color(245, 245, 245)
                 fill = True
             else:
                 fill = False
+
+            # Get Y position before row to calculate multiline cells properly
+            y_position = pdf.get_y()
 
             for i, col in enumerate(available_columns):
                 value = str(item.get(col, ""))
@@ -132,8 +166,25 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
 
                 # Align different columns appropriately
                 align = "R" if col == "Cost" else "L"
-                pdf.cell(available_widths[i], 8, value, 1, 0, align, fill)
 
+                # For longer text, use multi_cell instead of cell
+                if len(value) > max_chars_per_line.get(col, 20) and col in ["Condition", "Procedure"]:
+                    # Save current x position
+                    x_position = pdf.get_x()
+
+                    # Set position for the multi_cell
+                    pdf.set_xy(x_position, y_position)
+
+                    # Use multi_cell for text that needs to wrap
+                    pdf.multi_cell(available_widths[i], row_height/2, value, 1, align, fill)
+
+                    # Calculate next x position
+                    next_x = x_position + available_widths[i]
+                    pdf.set_xy(next_x, y_position)
+                else:
+                    pdf.cell(available_widths[i], row_height, value, 1, 0, align, fill)
+
+            # Move to next row
             pdf.ln()
 
     # Add cost summary section with proper spacing

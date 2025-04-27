@@ -752,8 +752,18 @@ def main():
 
                     # Calculate total price and apply discounts/taxes
                     total_price = sum(item["Cost"] for item in st.session_state.treatment_record)
-                    discount_amount = st.number_input("Discount Amount", min_value=0.0, step=1.0,
-                                                      format="%.2f", key="discount_amount")
+
+                    discount_percent = st.number_input(
+                        "Discount Percentage (%)", 
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        step=1.0,
+                        format="%.1f", 
+                        key="discount_percent"
+                    )
+
+                    # Calculate discount and tax based on user input
+                    discount_calculation = total_price * (discount_percent / 100)
                     tax_apply = st.checkbox("Apply VAT (15%)", key="tax_apply")
 
                     # Checkbox to include dental images in the PDF report
@@ -761,7 +771,6 @@ def main():
 
                     # Calculate final price with VAT and discount
                     tax_calculation = total_price * 0.15 if tax_apply else 0
-                    discount_calculation = min(discount_amount, total_price)
                     final_calculation = total_price - discount_calculation + tax_calculation
 
                     # Display cost breakdown in table format
@@ -773,7 +782,7 @@ def main():
 
                     # Only add discount row if discount is applied
                     if discount_calculation > 0:
-                        descriptions.append("Discount")
+                        descriptions.append(f"Discount ({discount_percent}%)")
                         amounts.append(f"-{currency_symbol} {discount_calculation:.2f}")
 
                     # Only add VAT row if VAT is applied
