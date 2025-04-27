@@ -114,7 +114,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         # Define columns based on treatment plan data
         columns = ["Tooth", "Condition", "Procedure", "Cost"]
 
-        # Calculate available page width for table (page width minus margins)
+        # Calculate available page width for table
         available_width = 180  # A4 width (210mm) - margins (15mm on each side)
 
         # Define dynamic column widths
@@ -145,7 +145,14 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
         # Add treatment data rows with alternating colors
         pdf.set_font("Arial", "", 10)
         for idx, item in enumerate(treatment_plan):
-            # Check if row height needs to be adjusted based on content length
+            # Check if we need to alternate row colors
+            if idx % 2 == 1:
+                pdf.set_fill_color(245, 245, 245)
+                fill = True
+            else:
+                fill = False
+
+            # Calculate needed heights for each cell based on content
             max_chars_per_line = {
                 "Tooth": 10,
                 "Condition": int(condition_width / 2),  # Approx 2mm per char
@@ -153,56 +160,84 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
                 "Cost": 15
             }
 
-            # Calculate row height based on the longest text
-            row_height = 8  # Default row height
-            for i, col in enumerate(available_columns):
+            cell_heights = {}
+            cell_texts = {}
+
+            # First pass: calculate row height
+            for col in available_columns:
                 value = str(item.get(col, ""))
-                if len(value) > max_chars_per_line.get(col, 20):
-                    # Calculate needed lines for the text
-                    needed_lines = (len(value) / max_chars_per_line.get(col, 20)) + 0.5
-                    new_height = needed_lines * 5  # 5mm per line
-                    row_height = max(row_height, new_height)
+                cell_texts[col] = value
 
-            # Alternate row colors
-            if idx % 2 == 1:
-                pdf.set_fill_color(245, 245, 245)
-                fill = True
-            else:
-                fill = False
+                if len(value) > max_chars_per_line.get(col, 20) and col in ["Condition", "Procedure"]:
+                    chars_per_line = max_chars_per_line.get(col, 20)
+                    # Estimate number of lines needed
+                    num_lines = len(value) / chars_per_line
+                    cell_heights[col] = max(8, int(num_lines * 6))  # 6mm per line, minimum 8mm
+                else:
+                    cell_heights[col] = 8  # Default height
 
-            # Get Y position before row to calculate multiline cells properly
-            y_position = pdf.get_y()
+            # Use the maximum height for the entire row
+            row_height = max(cell_heights.values()) if cell_heights else 8
 
+            # Store starting position
+            start_y = pdf.get_y()
+            start_x = pdf.get_x()
+
+            # Draw all cell backgrounds and borders first
+            current_x = start_x
             for i, col in enumerate(available_columns):
-                value = str(item.get(col, ""))
+                width = available_widths[i]
+                # Draw cell background and border only
+                pdf.set_fill_color(245, 245, 245) if fill else pdf.set_fill_color(255, 255, 255)
+                pdf.rect(current_x, start_y, width, row_height, style="DF")
+                current_x += width
+
+            # Second pass: add content to cells
+            current_x = start_x
+            for i, col in enumerate(available_columns):
+                width = available_widths[i]
+                value = cell_texts[col]
+
+                # Format currency for cost column
                 if col == "Cost" and value:
                     try:
                         value = f"{display_currency} {float(value):.2f}"
                     except ValueError:
                         pass
 
-                # Align different columns appropriately
+                # Set alignment based on column type
                 align = "R" if col == "Cost" else "L"
 
-                # For longer text, use multi_cell instead of cell
+                # Handle text differently based on length and column
                 if len(value) > max_chars_per_line.get(col, 20) and col in ["Condition", "Procedure"]:
-                    # Save current x position
-                    x_position = pdf.get_x()
+                    pdf.set_xy(current_x + 1, start_y + 1)  # Add 1mm padding
 
-                    # Set position for the multi_cell
-                    pdf.set_xy(x_position, y_position)
-
-                    # Use multi_cell for text that needs to wrap
-                    pdf.multi_cell(available_widths[i], row_height/2, value, 1, align, fill)
-
-                    # Calculate next x position
-                    next_x = x_position + available_widths[i]
-                    pdf.set_xy(next_x, y_position)
+                    # Use multi_cell with border=0 to avoid extra lines
+                    pdf.multi_cell(
+                        width - 2,  # Width minus padding
+                        5,  # Fixed line height
+                        value,
+                        0,  # No border - important!
+                        align,
+                        0   # No fill - already done
+                    )
                 else:
-                    pdf.cell(available_widths[i], row_height, value, 1, 0, align, fill)
+                    # For short text, center vertically
+                    text_y = start_y + (row_height - 4) / 2
+                    pdf.set_xy(current_x + 1, text_y)
+                    pdf.cell(width - 2, 4, value, 0, 0, align, 0)
 
-            # Move to next row
-            pdf.ln()
+                # Draw border lines manually to ensure clean borders
+                pdf.set_draw_color(0, 0, 0)
+                pdf.line(current_x, start_y, current_x, start_y + row_height)  # Left
+                pdf.line(current_x + width, start_y, current_x + width, start_y + row_height)  # Right
+                pdf.line(current_x, start_y, current_x + width, start_y)  # Top
+                pdf.line(current_x, start_y + row_height, current_x + width, start_y + row_height)  # Bottom
+
+                current_x += width
+
+            # Move cursor to next row
+            pdf.set_y(start_y + row_height)
 
     # Add cost summary section with proper spacing
     pdf.ln(10)
