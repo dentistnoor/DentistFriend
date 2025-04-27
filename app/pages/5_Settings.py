@@ -320,20 +320,32 @@ def show_profile(database, doctor_email):
         if doctor_doc.exists:
             doctor_data = doctor_doc.to_dict()
             current_name = doctor_data.get("name", "")
+            current_hospital = doctor_data.get("hospital_name", "")
+            current_address = doctor_data.get("hospital_address", "")
 
             # Display form to edit doctor name
             with st.container(border=True):
                 st.subheader("Your Information")
                 new_name = st.text_input("Doctor Name", value=current_name)
+                new_hospital = st.text_input("Hospital Name", value=current_hospital)
+                new_address = st.text_area("Hospital Address", value=current_address, height=100)
 
                 if st.button("✔️ Update Profile", use_container_width=True):
-                    if new_name != current_name:
-                        # Update name in Firestore
-                        doctor_ref.update({"name": new_name})
+                    if (new_name != current_name or 
+                        new_hospital != current_hospital or 
+                        new_address != current_address):
+                        # Update information in Firestore
+                        doctor_ref.update({
+                            "name": new_name,
+                            "hospital_name": new_hospital,
+                            "hospital_address": new_address
+                        })
+
                         # Update session state
                         st.session_state["doctor_name"] = new_name
+                        st.session_state["hospital_name"] = new_hospital
+                        st.session_state["hospital_address"] = new_address
                         st.success("Profile updated successfully!")
-                        st.rerun()
         else:
             st.error("Doctor profile not found. Please contact support.")
     except Exception as e:

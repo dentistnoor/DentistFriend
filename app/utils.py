@@ -54,6 +54,23 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
 
     pdf.add_page()
 
+    # Get hospital information from session state
+    hospital_name = st.session_state.get("hospital_name", "")
+    hospital_address = st.session_state.get("hospital_address", "")
+
+    # Hospital name and address at the top (if available)
+    if hospital_name:
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, hospital_name, 0, 1, "C")
+
+        if hospital_address:
+            pdf.set_font("Arial", "", 10)
+            # Split address into multiple lines if needed
+            address_lines = hospital_address.strip().split('\n')
+            for line in address_lines:
+                pdf.cell(0, 5, line, 0, 1, "C")
+            pdf.ln(2)  # Add small space after address
+
     # Document title
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, "C")
