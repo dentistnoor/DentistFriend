@@ -60,7 +60,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
 
     # Hospital name and address at the top (if available)
     if hospital_name:
-        pdf.set_font("Arial", "B", 14)
+        pdf.set_font("Arial", "B", 16)
         pdf.cell(0, 10, hospital_name, 0, 1, "C")
 
         if hospital_address:
@@ -72,7 +72,7 @@ def generate_pdf(doctor_name, patient_name, treatment_plan, currency_symbol="SAR
             pdf.ln(2)  # Add small space after address
 
     # Document title
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Dental Treatment Plan", 0, 1, "C")
 
     # Date on top right
