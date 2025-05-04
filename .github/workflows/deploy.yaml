@@ -48,4 +48,4 @@ jobs:
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.DO_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            "https://api.digitalocean.com/v2/apps/31ccb161-5b1e-4e6f-b4fc-8b5310e87172/deployments"
+            "https://api.digitalocean.com/v2/apps/f55f223b-a695-4029-9e77-2451caff61e7/deployments"
