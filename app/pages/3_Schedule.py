@@ -1,5 +1,4 @@
 import streamlit as st
-from Dashboard import show_support
 from utils import show_footer
 
 def chat():
@@ -12,8 +11,6 @@ def chat():
             st.session_state.clear()
             st.rerun()
 
-    # st.divider()
-    # show_support()
 
 chat()
 show_footer()

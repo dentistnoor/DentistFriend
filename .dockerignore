@@ -5,6 +5,10 @@ __pycache__/
 # Project-specific files
 .github/
 .gitignore
+.env
+.env.example
+firebase-config.json
+LICENSE
 README.md
 
 # Docker-specific files
