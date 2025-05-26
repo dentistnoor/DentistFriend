@@ -29,12 +29,20 @@ database = firestore.client()
 custom_css()
 
 def main():
-    st.image('assets/header2.jpg', use_container_width=True)
+    st.image('assets/header.jpg', use_container_width=True)
     st.error("NOTE: The application is currently in alpha phase (v0.5). Some features are limited and undergoing development", icon="⚠")
 
     # Initialize session state for login tracking
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
+
+    # UI flow tracking
+    if "show_reset_password" not in st.session_state:
+        st.session_state["show_reset_password"] = False
+    if "show_reset_email" not in st.session_state:
+        st.session_state["show_reset_email"] = False
+    if "show_delete_account" not in st.session_state:
+        st.session_state["show_delete_account"] = False
 
     if st.session_state["logged_in"]:
         # Logged-in user view
@@ -59,27 +67,41 @@ def main():
 
         with col2:
             if st.button("Reset Password", icon="🔄", use_container_width=True):
-                reset_password()
+                st.session_state["show_reset_password"] = True
+                st.session_state["show_reset_email"] = False
+                st.session_state["show_delete_account"] = False
+                st.rerun()  # Force a rerun to show the reset password form
 
         with col3:
-            if st.button("Reset Email", icon="📧", use_container_width=True):
-                reset_email()
+            if st.button("Change Email", icon="📧", use_container_width=True):
+                st.session_state["show_reset_email"] = True
+                st.session_state["show_reset_password"] = False
+                st.session_state["show_delete_account"] = False
+                st.rerun()  # Force a rerun to show the reset email form
 
         with col4:
             if st.button("Delete Account", icon="🗑️", use_container_width=True):
+                st.session_state["show_delete_account"] = True
+                st.session_state["show_reset_password"] = False
+                st.session_state["show_reset_email"] = False
+                st.rerun()  # Force a rerun to show the delete account form
+
+        # Show appropriate form based on user selection
+        if st.session_state["show_reset_password"]:
+            with st.container():
+                st.divider()
+                reset_password()
+
+        if st.session_state["show_reset_email"]:
+            with st.container():
+                st.divider()
+                reset_email()
+
+        if st.session_state["show_delete_account"]:
+            with st.container():
+                st.divider()
                 delete_account()
 
-        # Privacy Policy section
-        st.divider()
-        show_privacy_policy()
-
-        # Support section
-        # st.divider()
-        # show_support()
-
-        # Team section
-        # st.divider()
-        # show_team()
     else:
         # Non-logged in user view
         # Create two columns for description and login
@@ -89,28 +111,20 @@ def main():
             show_info()
 
         with auth_col:
-            tab1, tab2, tab3= st.tabs(["Sign In", "Sign Up", "Reset Password"])
-
-            with tab1:
-                sign_in()
-
-            with tab2:
-                sign_up()
-
-            with tab3:
+            # Check if we should show reset password form instead of login/signup
+            if st.session_state["show_reset_password"]:
                 reset_password()
+                if st.button("Back to Login", use_container_width=True):
+                    st.session_state["show_reset_password"] = False
+                    st.rerun()
+            else:
+                tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
 
-        # Privacy Policy section
-        st.divider()
-        show_privacy_policy()
+                with tab1:
+                    sign_in()
 
-        # Support section
-        # st.divider()
-        # show_support()
-
-        # Team section
-        # st.divider()
-        # show_team()
+                with tab2:
+                    sign_up()
 
 
 def show_info():
@@ -134,133 +148,6 @@ def show_info():
     """, unsafe_allow_html=True)
 
 
-def show_support():
-    st.markdown("## ❤️ Support Dentist Friend")
-    st.markdown("""
-    Thank you for considering supporting Dentist Friend! Your donations help us improve our services and develop new features.
-
-    ### Donation Options:
-    - **UPI**: Dentist Friend@upi
-
-    Every contribution helps us make dental practice management better for everyone. Thank you for your support!
-    """)
-
-
-def show_team():
-    st.markdown("## 🛠️ Team")
-    team_col1, team_col2 = st.columns(2)
-
-    with team_col1:
-        st.image("assets/noor.jpg", caption="Dr. Noor Hebbal", use_container_width=True)
-        st.markdown("**Dentist, BDS**")
-        st.markdown("Al-Ameen Dental College, Vijayapura (1996-2001)")
-        st.markdown("📧 Contact: [noordentist@gmail.com](mailto:noordentist@gmail.com)")
-
-    with team_col2:
-        st.image("assets/areeb.jpg", caption="Areeb Ahmed", use_container_width=True)
-        st.markdown("**Student Developer, B.E CSE**")
-        st.markdown("Dayananda Sagar College of Engineering, Bangaluru (2022-2026)")
-        st.markdown("📧 Contact: [hi@areeb.cloud](mailto:hi@areeb.cloud)")
-
-
-def show_privacy_policy():
-    with st.expander("**Privacy Policy**"):
-        st.markdown("""
-        # Privacy Policy
-
-        Your privacy and security are of utmost importance to us. This policy describes how we collect and use information about you when you use Dentist Friend, including our application and website. If you are one of our customers, you should read this policy in conjunction with our Terms of Service.
-
-        ### 1. Who are we?
-
-        We are Dentist Friend, a dental practice management solution. The processing explained in this policy is carried out by Dentist Friend as the data controller. This means that we are responsible for deciding how we hold and use personal data about you.
-
-        ### 2. How do we collect your data?
-
-        We collect information about you when you:
-        - Create an account on our platform
-        - Input patient information into our system
-        - Use our inventory management features
-        - Contact our support team
-        - Fill in forms on our website
-
-        We strictly adhere to a data minimization approach and only collect information that is necessary for providing our services.
-
-        ### 3. What data do we collect?
-
-        We collect only essential information needed to provide our services:
-
-        **Personal data**: This includes information that identifies you, such as:
-        - Your name, clinic name, and contact details
-        - Login credentials
-        - Patient records you enter into our system
-        - Communication records when you interact with our support team
-
-        **Non-personal data**: We do not collect any additional non-personal data beyond what is strictly necessary for the application to function.
-
-        The data you submit should not include sensitive personal data beyond what is necessary for dental practice management.
-
-        ### 4. How do we use your data?
-
-        We use the information we collect to:
-        - Create and maintain your account
-        - Provide our dental practice management services
-        - Respond to support requests
-        - Communicate with you about our services
-        - Process payments if you subscribe to a paid plan
-        - Ensure compliance with applicable laws and regulations
-
-        We do not use your data for analytics, marketing research, or any purpose beyond providing the core functionality of our platform.
-
-        ### 5. What are our purposes and legal basis for collecting your personal data?
-
-        We collect your personal data because:
-        - It's necessary to perform our contract with you
-        - You've given consent for specific purposes
-        - We have legitimate interests in providing our services
-
-        ### 6. With whom do we share personal data?
-
-        We share your data only in limited circumstances and strictly on a need-to-know basis:
-
-        - **Cloud Service Providers**: We use secure cloud hosting services to store your data
-        - **Payment Processors**: For processing subscription payments
-        - **Email Service Providers**: To send notifications and communications
-
-        We do not sell, rent, or share your data with third parties for marketing purposes, analytics, or any other purpose beyond what is necessary to provide our services.
-
-        ### 7. For how long do we retain your personal data?
-
-        We keep your personal data for as long as necessary to provide our services or as required by law. If you delete your account, we will remove your personal data from our active systems within 90 days, though some information may remain in backups for legal and technical reasons.
-
-        ### 8. How do we transfer your data?
-
-        Dentist Friend complies with data protection regulations. We implement appropriate safeguards when transferring data, including encryption and access controls.
-
-        ### 9. What are your rights regarding your personal data?
-
-        You have the right to:
-        - Access your personal data
-        - Correct inaccurate information
-        - Request deletion of your data
-        - Object to processing of your data
-        - Request restriction of processing
-        - Data portability
-        - Withdraw consent
-
-        To exercise these rights, please contact us at privacy@dentistfriend.in
-
-        ### 10. Security
-        
-        We implement robust security measures to protect your personal information. This includes encryption, secure data centers, and strict access controls. We prioritize the security of your data and regularly review our security practices to maintain the highest standards. However, no method of transmission over the internet is 100% secure, so while we use industry-best practices, we cannot guarantee absolute security.
-
-        ### 11. Changes to this policy
-
-        We may update this policy periodically. If we make significant changes, we will notify you via email or through our application. Any changes will take effect 30 days after the update date.
-
-        Last revised: April 17, 2025
-        """)
-
-
 def show_nav():
     st.markdown("### Quick Access")
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -274,8 +161,8 @@ def show_nav():
             st.switch_page("pages/2_Inventory.py")
 
     with col3:
-            if st.button("📅 Schedule", use_container_width=True):
-                st.switch_page("pages/3_Schedule.py")
+        if st.button("📅 Schedule", use_container_width=True):
+            st.switch_page("pages/3_Schedule.py")
 
     with col4:
         if st.button("📞 Contact", use_container_width=True):
@@ -351,88 +238,169 @@ def sign_in():
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # with col2:
-    #     if st.button("Reset Password", icon="🔄", use_container_width=True):
-    #         reset_password()
+    with col2:
+        if st.button("Forgot Password?", use_container_width=True):
+            st.session_state["show_reset_password"] = True
+            st.rerun()
 
 
 def reset_password():
-    email = st.text_input("Enter your email")
+    st.subheader("Reset Password")
     api_key = os.getenv("FIREBASE_API_KEY")
 
-    if st.button("Send Reset Email", icon="🔄", use_container_width=True):
-        if not email:
-            st.error("Please enter your email address.")
-        else:
-            endpoint = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={api_key}"
+    email = st.text_input("Email address", key="reset_email")
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("Send Reset Link", key="send_reset", use_container_width=True):
+            if not email:
+                st.error("Please enter your email address")
+                return
+
+            url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={api_key}"
             payload = {
                 "requestType": "PASSWORD_RESET",
                 "email": email
             }
 
-            response = requests.post(endpoint, json=payload)
-            if response.status_code == 200:
-                st.success(f"Password reset email sent to {email}.")
-            else:
-                error_info = response.json().get("error", {}).get("message", "Unknown error")
-                st.error(f"Failed to send reset email: {error_info}")
+            with st.spinner("Processing request..."):
+                try:
+                    response = requests.post(url, json=payload)
+
+                    if response.status_code == 200:
+                        st.success("✅ Password reset email sent!")
+                        st.info(f"Please check {email} for the reset link (including spam folder)")
+                    else:
+                        error_data = response.json()
+                        error_message = error_data.get("error", {}).get("message", "Unknown error")
+
+                        if error_message == "EMAIL_NOT_FOUND":
+                            st.error("No account found with this email address")
+                        else:
+                            st.error(f"Error: {error_message}")
+
+                except Exception as e:
+                    st.error(f"Request failed: {str(e)}")
+
+    with col2:
+        if st.button("Cancel", key="cancel_reset", use_container_width=True):
+            st.session_state["show_reset_password"] = False
+            st.rerun()
 
 
 def reset_email():
-    # Get the currently stored email from session state
+    st.subheader("Change Email Address")
+
     current_email = st.session_state.get("doctor_email")
-    new_email = st.text_input("New Email Address")
+    st.info(f"Current email: {current_email}")
 
-    if st.button("Update Email", icon="📧", use_container_width=True):
-        if not new_email:
-            st.error("Please enter a new email address.")
-            return
+    new_email = st.text_input("New Email Address", key="new_email_input")
+    password = st.text_input("Confirm your password", type="password", key="confirm_password_email_change")
 
-        try:
-            # Fetch the user details using the current email
-            user = auth.get_user_by_email(current_email)
-            auth.update_user(user.uid, email=new_email)  # Update email in authentication system
+    col1, col2 = st.columns([1, 1])
 
-            # Retrieve doctor data from Firestore
-            doctor_doc = database.collection("doctors").document(current_email).get()
-            doctor_data = doctor_doc.to_dict()
+    with col1:
+        if st.button("Update Email", key="update_email_btn", use_container_width=True):
+            if not new_email:
+                st.error("Please enter a new email address.")
+                return
 
-            # Update email field in the retrieved data
-            doctor_data["email"] = new_email
-            database.collection("doctors").document(new_email).set(doctor_data)  # Save with new email
+            if not password:
+                st.error("Please confirm your password.")
+                return
 
-            # Delete the old document associated with the previous email
-            database.collection("doctors").document(current_email).delete()
+            # First verify the password
+            try:
+                doctor_doc = database.collection("doctors").document(current_email).get()
+                if doctor_doc.exists:
+                    doctor_data = doctor_doc.to_dict()
+                    stored_hash = doctor_data.get("password_hash", "")
+                    entered_hash = hashlib.sha256(password.encode()).hexdigest()
 
-            # Update session state with the new email
-            st.session_state["doctor_email"] = new_email
-            st.success("Email updated successfully!")
-            st.rerun()  # Refresh the app to reflect changes
+                    if entered_hash != stored_hash:
+                        st.error("Incorrect password. Email change canceled.")
+                        return
+                else:
+                    st.error("User data not found. Please try logging in again.")
+                    return
 
-        except firebase_admin.auth.EmailAlreadyExistsError:
-            st.error("Email already in use.")  # Handle case where new email is already taken
-        except Exception as e:
-            st.error(f"Error: {e}")  # Handle any other unexpected errors
+                with st.spinner("Updating your email address..."):
+                    # Get current user object
+                    user = auth.get_user_by_email(current_email)
+
+                    try:
+                        # Update email in Firebase Authentication
+                        auth.update_user(user.uid, email=new_email)
+                        # Update Firestore document
+                        doctor_data["email"] = new_email
+
+                        # Update Firestore document with new email and delete old one
+                        database.collection("doctors").document(new_email).set(doctor_data)
+                        database.collection("doctors").document(current_email).delete()
+
+                        # Update session state
+                        st.session_state["doctor_email"] = new_email
+                        st.success("✅ Email address updated successfully!")
+                        st.info(f"Your account is now associated with {new_email}")
+
+                        # Hide the form after successful update
+                        st.session_state["show_reset_email"] = False
+                        st.rerun()
+
+                    except firebase_admin.auth.EmailAlreadyExistsError:
+                        st.error("This email is already associated with another account.")
+                    except Exception as e:
+                        st.error(f"Failed to update email: {str(e)}")
+
+            except Exception as e:
+                st.error(f"Error accessing user data: {str(e)}")
+
+    with col2:
+        if st.button("Cancel", key="cancel_email_change", use_container_width=True):
+            st.session_state["show_reset_email"] = False
+            st.rerun()
 
 
 def delete_account():
+    st.subheader("Delete Account")
     email = st.session_state.get("doctor_email")
-    if st.button("Confirm Deletion", icon="⚠️", use_container_width=True):
-        try:
-            # Delete document from Firestore
-            database.collection("doctors").document(email).delete()
 
-            # Delete user from Firebase Authentication
-            user = auth.get_user_by_email(email)
-            auth.delete_user(user.uid)
+    st.warning("Warning: Account deletion is permanent", icon="⚠️")
+    password = st.text_input("Please enter your password to confirm", type="password")
 
-            st.success("Account deleted successfully!")
-            st.session_state.clear()  # Clear session state
-            st.rerun()  # Refresh the app
-        except firebase_admin.auth.UserNotFoundError:
-            st.error("User not found.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Permanently Delete My Account", use_container_width=True):
+            try:
+                # Confirm password before deletion
+                doc = database.collection("doctors").document(email).get()
+                stored_hash = doc.to_dict().get("password_hash", "")
+                entered_hash = hashlib.sha256(password.encode()).hexdigest()
+
+                if entered_hash != stored_hash:
+                    st.error("Incorrect password.")
+                    return
+
+                # Delete from both Firestore and Firebase Auth
+                user = auth.get_user_by_email(email)
+                database.collection("doctors").document(email).delete()
+                auth.delete_user(user.uid)
+
+                # Clear session state and show success message
+                st.success("Account deleted successfully.")
+                st.session_state.clear()
+                st.rerun()
+
+            except firebase_admin.auth.UserNotFoundError:
+                st.error("User not found in authentication.")
+            except Exception as e:
+                st.error(f"Error during deletion: {str(e)}")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state["show_delete_account"] = False
+            st.rerun()
 
 
 if __name__ == "__main__":
