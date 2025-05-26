@@ -21,7 +21,7 @@ def fetch_stock():
     return {doc.id: doc.to_dict() for doc in stock_documents}
 
 
-def store_stock(item_name, item_quantity, expiry_date, low_threshold=5):
+def store_stock(item_name, item_quantity, expiry_date, low_threshold=5, category="", location=""):
     """Store or update inventory item in Firestore database"""
     item_doc = stock_collection.document(item_name).get()
     if item_doc.exists:
@@ -31,7 +31,9 @@ def store_stock(item_name, item_quantity, expiry_date, low_threshold=5):
     stock_collection.document(item_name).set({
         "quantity": item_quantity,
         "expiry_date": expiry_date,
-        "low_threshold": low_threshold
+        "low_threshold": low_threshold,
+        "category": category,
+        "location": location
     }, merge=True)
     return True
 
@@ -110,8 +112,12 @@ def import_inventory(file):
                 # Generate a unique item ID based on name and expiry date
                 item_id = f"{item_name}_{expiry_date}"
 
+                # Get optional columns if they exist
+                category = str(row.get("Category", "")).strip() if "Category" in df.columns else ""
+                location = str(row.get("Location", "")).strip() if "Location" in df.columns else ""
+                
                 # Add item to inventory
-                success = store_stock(item_id, quantity, expiry_date, low_threshold)
+                success = store_stock(item_id, quantity, expiry_date, low_threshold, category, location)
                 if success:
                     success_count += 1
                 else:
@@ -623,6 +629,8 @@ def display_reports():
                 "Item": item_name.title(),  # Base name for grouping
                 "Display Name": display_name,  # Formatted name with date
                 "Quantity": details["quantity"],
+                "Category": details.get("category", ""),
+                "Location": details.get("location", ""),
                 "Days Until Expiry": days_until_expiry
             })
 
@@ -698,10 +706,6 @@ def display_reports():
             if 'ID' in export_df.columns:
                 export_df = export_df.drop(columns=['ID'])
 
-            if 'Status' in export_df.columns:
-                # Remove emoji characters from Status (🚨, ⚠️, ❌)
-                export_df['Status'] = export_df['Status'].str.replace(r'[^\w\s]', '', regex=True).str.strip()
-
             export_col1, export_col2 = st.columns(2)
             with export_col1:
                 csv = export_df.to_csv(index=False)
@@ -749,17 +753,19 @@ def show_inventory():
             # Determine status
             status = "Normal"
             if days_until_expiry <= 30:
-                status = "⚠️ Expiring Soon"
+                status = "Expiring Soon"
             if quantity <= item_threshold:
-                status = "🚨 Low Stock"
+                status = "Low Stock"
             if days_until_expiry <= 0:
-                status = "❌ Expired"
+                status = "Expired"
             if quantity == 0:
-                status = "❌ Out of Stock"
+                status = "Out of Stock"
 
             st.session_state.inventory_records.append({
                 "Item": item_name.title(),
                 "Quantity": details["quantity"],
+                "Category": details.get("category", ""),
+                "Location": details.get("location", ""),
                 "Expiry Date": format_date(details["expiry_date"]),
                 "Days Until Expiry": days_until_expiry,
                 "Status": status,
@@ -771,7 +777,7 @@ def show_inventory():
 
         # Custom sorting function to prioritize alerts
         def status_priority(status):
-            priorities = {"❌ Expired": 0, "❌ Out of Stock": 1, "🚨 Low Stock": 2, "⚠️ Expiring Soon": 3, "Normal": 4}
+            priorities = {"Expired": 0, "Out of Stock": 1, "Low Stock": 2, "Expiring Soon": 3, "Normal": 4}
             return priorities.get(status, 4)
 
         # Sort the DataFrame by status priority
@@ -803,6 +809,14 @@ def show_inventory():
                     "Quantity",
                     help="Number of units in stock",
                     format="%d"
+                ),
+                "Category": st.column_config.TextColumn(
+                    "Category",
+                    help="Item category classification"
+                ),
+                "Location": st.column_config.TextColumn(
+                    "Location", 
+                    help="Physical storage location"
                 ),
                 "Days Until Expiry": st.column_config.NumberColumn(
                     "Days Until Expiry",
@@ -844,23 +858,23 @@ def show_inventory():
                 st.rerun()
 
         with filter_col3:
-            if st.button("🚨 Low Stock", key="low_stock", use_container_width=True, type=get_button_style("🚨 Low Stock")):
-                st.session_state.active_filter = "🚨 Low Stock"
+            if st.button("Low Stock", key="low_stock", use_container_width=True, type=get_button_style("Low Stock")):
+                st.session_state.active_filter = "Low Stock"
                 st.rerun()
 
         with filter_col4:
-            if st.button("⚠️ Expiring Soon", key="expiring_soon", use_container_width=True, type=get_button_style("⚠️ Expiring Soon")):
-                st.session_state.active_filter = "⚠️ Expiring Soon"
+            if st.button("Expiring Soon", key="expiring_soon", use_container_width=True, type=get_button_style("Expiring Soon")):
+                st.session_state.active_filter = "Expiring Soon"
                 st.rerun()
 
         with filter_col5:
-            if st.button("❌ Expired", key="expired", use_container_width=True, type=get_button_style("❌ Expired")):
-                st.session_state.active_filter = "❌ Expired"
+            if st.button("Expired", key="expired", use_container_width=True, type=get_button_style("Expired")):
+                st.session_state.active_filter = "Expired"
                 st.rerun()
 
         with filter_col6:
-            if st.button("❌ Out of Stock", key="out_of_stock", use_container_width=True, type=get_button_style("❌ Out of Stock")):
-                st.session_state.active_filter = "❌ Out of Stock"
+            if st.button("Out of Stock", key="out_of_stock", use_container_width=True, type=get_button_style("Out of Stock")):
+                st.session_state.active_filter = "Out of Stock"
                 st.rerun()
     else:
         st.info("Inventory Status: No items currently in stock")
@@ -878,9 +892,18 @@ def add_items():
     with column_third:
         low_threshold = st.number_input("Low Stock Threshold", min_value=1, value=5, step=1)
 
-    expiry_date = st.date_input("Expiry Date", min_value=datetime.today().date())
+    # Second row for expiry, category, and location
+    col_expiry, col_category, col_location = st.columns(3)
+    with col_expiry:
+        expiry_date = st.date_input("Expiry Date", min_value=datetime.today().date())
+    
+    with col_category:
+        item_category = st.text_input("Category", placeholder="e.g., Surgical, Cleaning, Medication").strip()
+    
+    with col_location:
+        item_location = st.text_input("Location", placeholder="e.g., Cabinet 1, Shelf B, Drawer 3").strip()
 
-    if st.button("➕ Add Item", use_container_width=True):
+    if st.button("Add Item", use_container_width=True):
         if item_name:
             expiry_string = expiry_date.strftime("%Y-%m-%d")
 
@@ -892,7 +915,7 @@ def add_items():
                 st.warning(f"Item '{item_name}' with the same expiry date already exists. Please edit the existing item instead.")
             else:
                 # Store the item with its unique ID
-                success = store_stock(item_id, item_quantity, expiry_string, low_threshold)
+                success = store_stock(item_id, item_quantity, expiry_string, low_threshold, item_category, item_location)
                 if success:
                     st.success(f"Item Added: {item_quantity} units of '{item_name}' (Expires: {format_date(expiry_string)}) added to inventory")
 
@@ -1028,6 +1051,21 @@ def handle_item_editing(edit_item):
             step=1
         )
 
+    cat_col, loc_col = st.columns(2)
+    with cat_col:
+        new_category = st.text_input(
+            "Category",
+            value=item_details.get('category', ''),
+            placeholder="e.g., Surgical, Cleaning, Medication"
+        )
+    
+    with loc_col:
+        new_location = st.text_input(
+            "Location",
+            value=item_details.get('location', ''),
+            placeholder="e.g., Cabinet 1, Shelf B, Drawer 3"
+        )
+
     # Create two buttons side by side - Save Changes and Delete Item
     col1, col2 = st.columns(2)
     with col1:
@@ -1046,7 +1084,9 @@ def handle_item_editing(edit_item):
                     stock_collection.document(new_item_id).set({
                         "quantity": new_quantity,
                         "expiry_date": expiry_string,
-                        "low_threshold": new_threshold
+                        "low_threshold": new_threshold,
+                        "category": new_category,
+                        "location": new_location
                     }, merge=True)
                     # Delete old item
                     stock_collection.document(edit_item).delete()
@@ -1065,7 +1105,9 @@ def handle_item_editing(edit_item):
                 stock_collection.document(edit_item).set({
                     "quantity": new_quantity,
                     "expiry_date": expiry_string,
-                    "low_threshold": new_threshold
+                    "low_threshold": new_threshold,
+                    "category": new_category,
+                    "location": new_location
                 }, merge=True)
                 st.success(f"Item Updated: '{base_name}' has been updated successfully")
 
