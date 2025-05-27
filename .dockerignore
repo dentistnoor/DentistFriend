@@ -6,8 +6,6 @@ __pycache__/
 .github/
 .gitignore
 .env
-.env.example
-firebase-config.json
 LICENSE
 README.md
 
