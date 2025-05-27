@@ -1056,14 +1056,16 @@ def handle_item_editing(edit_item):
         new_category = st.text_input(
             "Category",
             value=item_details.get('category', ''),
-            placeholder="e.g., Surgical, Cleaning, Medication"
+            placeholder="e.g., Surgical, Cleaning, Medication",
+            key="edit_category"
         )
     
     with loc_col:
         new_location = st.text_input(
             "Location",
             value=item_details.get('location', ''),
-            placeholder="e.g., Cabinet 1, Shelf B, Drawer 3"
+            placeholder="e.g., Cabinet 1, Shelf B, Drawer 3",
+            key="edit_location"
         )
 
     # Create two buttons side by side - Save Changes and Delete Item
