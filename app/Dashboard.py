@@ -104,13 +104,9 @@ def main():
 
     else:
         # Non-logged in user view
-        # Create two columns for description and login
-        desc_col, auth_col = st.columns([1, 1])
-
-        with desc_col:
-            show_info()
-
-        with auth_col:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
             # Check if we should show reset password form instead of login/signup
             if st.session_state["show_reset_password"]:
                 reset_password()
@@ -125,27 +121,6 @@ def main():
 
                 with tab2:
                     sign_up()
-
-
-def show_info():
-    st.markdown("""
-    <div style="background-color: #ffffff; border-radius: 6px; padding: 12px; margin-bottom: 14px; border: 1px solid #eaedf2;">
-        <h2 style="color: #3d4a41; margin-top: 0; font-size: 22px; font-weight: 600;">What is Dentist Friend?</h2>
-        <p style="font-size: 15px; line-height: 1.4; color: #444;">
-            Dentist Friend is a comprehensive dental practice management solution that streamlines
-            patient treatment, inventory management, and communication for efficient clinic operations.
-        </p>
-    </div>
-
-    <div style="background-color: #ffffff; border-radius: 6px; padding: 12px; border: 1px solid #eaedf2;">
-        <h2 style="color: #3d4a41; margin-top: 0; font-size: 22px; font-weight: 600;">Key Features</h2>
-        <ul style="font-size: 15px; line-height: 1.4; padding-left: 18px; color: #444;">
-            <li><strong>Patient Management</strong>: Register patients, search records, and manage treatments with dental charts, procedures,
-            cost summaries, and PDF export.</li>
-            <li><strong>Inventory Management</strong>: Add, remove, and modify inventory items with alerts for low stock and expiring items.</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def show_nav():
@@ -177,11 +152,15 @@ def show_nav():
 
 def sign_up():
     st.subheader("Create a New Account")
-    name = st.text_input("Name", key="signup_name")
-    email = st.text_input("Email", key="signup_email")
-    password = st.text_input("Password", type="password", key="signup_password")
+    
+    with st.form("signup_form"):
+        name = st.text_input("Name", key="signup_name")
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Password", type="password", key="signup_password")
+        
+        signup_submitted = st.form_submit_button("Sign Up", icon="🔒", use_container_width=True)
 
-    if st.button("Sign Up", icon="🔒", use_container_width=True):
+    if signup_submitted:
         try:
             # Create user in Firebase Authentication
             user = auth.create_user(email=email, password=password)
@@ -203,45 +182,53 @@ def sign_up():
 
 def sign_in():
     st.subheader("Sign In to Your Account")
-    email = st.text_input("Email", key="signin_email")
-    password = st.text_input("Password", type="password", key="signin_password")
+    
+    with st.form("signin_form"):
+        email = st.text_input("Email", key="signin_email")
+        password = st.text_input("Password", type="password", key="signin_password")
+        
+        col1, col2 = st.columns(2)  # Split into two columns
 
-    col1, col2 = st.columns(2)  # Split into two columns
+        with col1:
+            login_submitted = st.form_submit_button("Log In", icon="🔓", use_container_width=True)
 
-    with col1:
-        if st.button("Log In", icon="🔓", use_container_width=True):
-            if not email or not password:
-                st.error("Please enter both email and password.")
-            else:
-                try:
-                    # Check if user exists in Firestore
-                    doctor_doc = database.collection("doctors").document(email).get()
-                    if doctor_doc.exists:
-                        doctor_data = doctor_doc.to_dict()
-                        stored_hash = doctor_data.get("password_hash", "")
+        with col2:
+            forgot_password = st.form_submit_button("Forgot Password?", use_container_width=True)
 
-                        # Check if entered password matches stored hash
-                        entered_hash = hashlib.sha256(password.encode()).hexdigest()
-                        if entered_hash == stored_hash:
-                            doctor_name = doctor_data.get("name", "")
+    # Handle login submission
+    if login_submitted:
+        if not email or not password:
+            st.error("Please enter both email and password.")
+        else:
+            try:
+                # Check if user exists in Firestore
+                doctor_doc = database.collection("doctors").document(email).get()
+                if doctor_doc.exists:
+                    doctor_data = doctor_doc.to_dict()
+                    stored_hash = doctor_data.get("password_hash", "")
 
-                            st.success(f"Welcome, Dr. {doctor_name}!")
-                            st.session_state["logged_in"] = True
-                            st.session_state["doctor_name"] = doctor_name
-                            st.session_state["doctor_email"] = email
+                    # Check if entered password matches stored hash
+                    entered_hash = hashlib.sha256(password.encode()).hexdigest()
+                    if entered_hash == stored_hash:
+                        doctor_name = doctor_data.get("name", "")
 
-                            st.rerun()
-                        else:
-                            st.error("Invalid email or password.")
+                        st.success(f"Welcome, Dr. {doctor_name}!")
+                        st.session_state["logged_in"] = True
+                        st.session_state["doctor_name"] = doctor_name
+                        st.session_state["doctor_email"] = email
+
+                        st.rerun()
                     else:
-                        st.error("User not found. Please check your email or create an account.")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                        st.error("Invalid email or password.")
+                else:
+                    st.error("User not found. Please check your email or create an account.")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-    with col2:
-        if st.button("Forgot Password?", use_container_width=True):
-            st.session_state["show_reset_password"] = True
-            st.rerun()
+    # Handle forgot password
+    if forgot_password:
+        st.session_state["show_reset_password"] = True
+        st.rerun()
 
 
 def reset_password():
