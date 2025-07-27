@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.jpg" alt="Project Logo">
+  <img src="assets/header.jpg" alt="Project Logo">
 </p>
 <p align="center" style="font-size: small;">Logo designed using <a href="https://canva.com">Canva</a></p>
 
